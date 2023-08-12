@@ -36,7 +36,7 @@ This repository contains a set of R scripts designed to build, evaluate, visuali
   - `reset_distributions`: Resets custom distributions to their original forms.
   - `get_prior_distribution`: Retrieve a prior distribution based on type.
 
-### 4. 04_empirical_bayes.R
+### 04_empirical_bayes.R
 - **Purpose:** Generate empirical Bayesian priors from data.
 - **Functions:**
   - `empirical_bayes_priors`: Computes priors based on data and given formula.
