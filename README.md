@@ -68,6 +68,3 @@ This repository contains a set of R scripts designed to build, evaluate, visuali
 - **Functions:**
   - `evaluate_model_performance`: Computes RMSE for regression or accuracy for classification.
 
-# Contact
-- email: napoleonic_bores@proton.me
-- discord: elkronos
