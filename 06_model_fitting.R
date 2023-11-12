@@ -1,35 +1,3 @@
-#' Fit a Bayesian Linear Model with Specified Priors
-#'
-#' Fits a Bayesian generalized linear model using the `stan_glm` function with specified priors. Checks for convergence using the `check_convergence` function.
-#'
-#' @param prior List of prior distributions for predictors. If NULL, priors are generated based on specified parameters.
-#' @param data Data frame containing the data to be used for the model fit.
-#' @param formula Formula specifying the model to be fitted.
-#' @param family A description of the error distribution and link function to be used in the model. Default is gaussian().
-#' @param dist_types A named list indicating the type of prior distribution for each predictor. Default is student_t for both intercept and slope.
-#' @param df A named list of degrees of freedom for the prior distributions. Default is 3 for both intercept and slope.
-#' @param mean A named list of means for the prior distributions. Default is 0 for both intercept and slope.
-#' @param sd A named list of standard deviations for the prior distributions. Default is 2.5 for both intercept and slope.
-#' @param chains The number of Markov chains. Default is 4.
-#' @param iter The total number of iterations for each chain. Default is 4000.
-#' @param seed The random seed for reproducibility. Default is 1234.
-#' @param ... Additional arguments to pass to `stan_glm`.
-#'
-#' @return A fitted model object if convergence is achieved. The function stops with an error message otherwise.
-#'
-#' @examples
-#' \dontrun{
-#' # Assuming a dataset 'data' and a formula 'response ~ predictor'
-#' fit <- fit_model_with_prior(data = data, formula = response ~ predictor)
-#' print(fit)
-#' }
-#'
-#' @seealso \code{\link[rstanarm]{stan_glm}} for the main model fitting function.
-#' 
-#' @importFrom rstanarm stan_glm
-#' @importFrom stats all.vars
-#' 
-#' @export
 fit_model_with_prior <- function(prior = NULL, data, formula, family = gaussian(), 
                                  dist_types = list(intercept = "student_t", slope = "student_t"), 
                                  df = list(intercept = 3, slope = 3), mean = list(intercept = 0, slope = 0), 
@@ -39,6 +7,13 @@ fit_model_with_prior <- function(prior = NULL, data, formula, family = gaussian(
   required_columns <- all.vars(formula)
   if (!all(required_columns %in% colnames(data))) {
     stop(paste("Data does not contain necessary columns for formula:", formula))
+  }
+  
+  # Check if family is compatible with the dependent variable type
+  dependent_var <- all.vars(formula)[1]
+  dependent_var_type <- class(data[[dependent_var]])
+  if (!compatible_family(family, dependent_var_type)) {
+    stop(paste("Incompatible family for the type of", dependent_var, ":", dependent_var_type))
   }
   
   predictor_names <- all.vars(formula)[-1] # Exclude the response variable
@@ -52,15 +27,28 @@ fit_model_with_prior <- function(prior = NULL, data, formula, family = gaussian(
     }
   }
   
+  # Enable parallel processing of chains
   fit <- stan_glm(formula, data = data, family = family,
                   prior = prior$intercept,
                   prior_intercept = prior$slope,
                   chains = chains, iter = iter, seed = seed,
-                  control = list(adapt_delta = 0.95), ...)
+                  control = list(adapt_delta = 0.95), cores = parallel::detectCores(), ...)
   converged <- check_convergence(fit)
   if (!converged) {
     stop("Model did not converge. Adjust model parameters or inspect data.")
   }
   
   return(fit)
+}
+
+compatible_family <- function(family, var_type) {
+  # This function checks if the family is compatible with the dependent variable type
+  # This is a simplified example; more thorough checks based on the specific model and data may be needed
+  if ((family == gaussian()) & (var_type %in% c("numeric", "integer"))) {
+    return(TRUE)
+  } else if ((family == binomial()) & (var_type == "factor")) {
+    return(TRUE)
+  } else {
+    return(FALSE)
+  }
 }
