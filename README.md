@@ -4,8 +4,8 @@ This repository contains a set of R scripts designed to build, evaluate, visuali
 
 ## Scripts and Their Functions:
 
-### 01_libraries_and_setup.R
-- **Purpose:** Loads the necessary libraries for the entire modeling workflow.
+### libraries_and_setup.R
+- **Purpose:** Loads the necessary libraries and global settings for the entire modeling workflow.
 - **Libraries Used:**
   - `rstanarm`
   - `bayesplot`
@@ -15,8 +15,8 @@ This repository contains a set of R scripts designed to build, evaluate, visuali
   - `rstan`
   - `loo`
 
-### 02_distributions.R
-- **Purpose:** Defines various prior distributions.
+### distributions.R
+- **Purpose:** Defines a comprehensive set of prior distribution generators.
 - **Functions:**
   - `student_t_prior`
   - `normal_prior`
@@ -28,43 +28,45 @@ This repository contains a set of R scripts designed to build, evaluate, visuali
   - `poisson_prior`
   - `lognormal_prior`
   - `bernoulli_prior`
+- **Global Objects and Utilities:**
+  - `original_distributions`, `distributions`
+  - `add_distribution`, `reset_distributions`, `get_prior_distribution`
 
-### 03_utilities.R
-- **Purpose:** Provides utility functions to manage distributions.
+### utilities.R
+- **Purpose:** Provides utility functions used across the repository.
 - **Functions:**
-  - `add_distribution`: Add a new distribution to the working list.
-  - `reset_distributions`: Resets custom distributions to their original forms.
-  - `get_prior_distribution`: Retrieve a prior distribution based on type.
+  - `validate_positive_integer`
+  - `validate_numeric`
+  - `%||%` (null-coalescing operator)
 
-### 04_empirical_bayes.R
-- **Purpose:** Generate empirical Bayesian priors from data.
+### empirical_bayes.R
+- **Purpose:** Computes empirical Bayesian hyperparameter specifications from data.
 - **Functions:**
-  - `empirical_bayes_priors`: Computes priors based on data and given formula.
+  - `empirical_bayes_priors`: Fits a linear model and maps coefficient estimates and standard errors to hyperparameters for various prior distributions.
 
-### 05_model_convergence.R
-- **Purpose:** Checks the convergence of a given model.
+### model_convergence.R
+- **Purpose:** Checks convergence diagnostics of a fitted Bayesian model.
 - **Functions:**
-  - `check_convergence`: Assesses if a model has converged.
+  - `check_convergence`: Assesses if a model has converged based on Rhat and effective sample size (ESS) metrics, and optionally generates trace plots.
 
-### 06_model_fitting.R
-- **Purpose:** Fits a Bayesian model using given priors and data.
+### model_fitting.R
+- **Purpose:** Fits Bayesian models using specified prior configurations and data.
 - **Functions:**
-  - `fit_model_with_prior`: Fits a Bayesian model using `stan_glm`.
+  - `build_stanarm_priors`: Converts hyperparameter lists into rstanarm prior objects.
+  - `fit_model_with_prior`: Fits a Bayesian model using `rstanarm::stan_glm` with given priors, and checks for convergence.
 
-### 07_model_visualization.R
-- **Purpose:** Visualizes model fit and posterior distributions.
+### model_visualization.R
+- **Purpose:** Generates diagnostic and posterior visualization plots for fitted models.
 - **Functions:**
-  - `generate_plot`: Generates trace or histogram plots.
-  - `plot_posterior_distributions`: Plots 95% intervals for posterior distributions.
+  - `generate_plot`: Generates diagnostic plots (trace, histogram, density, and autocorrelation) for a model.
+  - `plot_posterior_distributions`: Visualizes posterior distributions with 95% credible intervals using bayesplot.
 
-### 08_model_sensitivity.R
-- **Purpose:** Performs sensitivity analysis for various prior configurations.
+### model_sensitivity.R
+- **Purpose:** Performs sensitivity analysis across different prior configurations.
 - **Functions:**
-  - `define_prior`: Defines priors for the sensitivity analysis.
-  - `sensitivity_analysis`: Conducts sensitivity analysis using different prior combinations.
+  - `sensitivity_analysis`: Iterates through a list of prior configurations, fits models, and computes performance metrics (using LOO) to assess how changes in priors affect model outcomes.
 
-### 09_model_evaluation.R
-- **Purpose:** Evaluates the performance of a model on test data.
+### model_evaluation.R
+- **Purpose:** Evaluates the predictive performance of fitted models.
 - **Functions:**
-  - `evaluate_model_performance`: Computes RMSE for regression or accuracy for classification.
-
+  - `evaluate_model_performance`: Computes performance metrics such as RMSE and MAE for regression tasks, or accuracy, precision, recall, and F1 Score for classification tasks.
