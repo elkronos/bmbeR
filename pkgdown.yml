@@ -1,0 +1,14 @@
+pandoc: 3.8.3
+pkgdown: 2.2.1
+pkgdown_sha: ~
+articles:
+  bmbeR: bmbeR.html
+  articles/convergence: convergence.html
+  articles/data-informed-priors: data-informed-priors.html
+  articles/predictive-evaluation: predictive-evaluation.html
+  articles/prior-sensitivity: prior-sensitivity.html
+  articles/priors: priors.html
+last_built: 2026-09-28T14:52Z
+urls:
+  reference: https://elkronos.github.io/bmbeR/reference
+  article: https://elkronos.github.io/bmbeR/articles

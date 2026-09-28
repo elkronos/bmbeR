@@ -1,0 +1,268 @@
+# bmbeR
+
+**Prior-focused Bayesian model building and evaluation for
+[rstanarm](https://mc-stan.org/rstanarm/).**
+
+bmbeR takes a regression model through a principled Bayesian workflow
+(Gelman et al., 2020), concentrating on the part existing packages leave
+to the analyst: the prior. It helps you choose priors on a sensible
+scale, check what they imply before fitting, verify the computation,
+measure how much the prior influenced the result, evaluate predictions
+honestly, and report it all.
+
+Website with walkthroughs: **<https://elkronos.github.io/bmbeR/>**
+
+Branches: `main` holds the package source; `github-pages` holds the
+built website and is written automatically by the pkgdown workflow (do
+not edit it by hand).
+
+## Installation
+
+``` r
+
+# install.packages("remotes")
+remotes::install_github("elkronos/bmbeR")
+```
+
+bmbeR needs rstanarm, which installs from CRAN as a binary on Windows
+and macOS. The walkthroughs are on the
+[website](https://elkronos.github.io/bmbeR/); add
+`build_vignettes = TRUE` to also install the *Get started* vignette
+locally (slower, because it fits models).
+
+## A complete workflow in one screen
+
+``` r
+
+library(bmbeR)
+options(mc.cores = 4)                      # run chains in parallel
+data(kidiq, package = "rstanarm")          # children's test scores
+train <- kidiq[1:334, ]
+test  <- kidiq[335:434, ]
+
+# 1. Specify priors in the units of the data
+priors <- prior_config(
+  intercept = prior_spec("normal", location = 100, scale = 20),   # at predictor means
+  slope     = prior_spec("normal", location = 0, scale = c(1, 10)),
+  aux       = prior_spec("exponential", rate = 1 / 15)
+)
+
+# 2. Check what the priors imply before seeing the outcome
+pc <- prior_predictive_check(train, kid_score ~ mom_iq + mom_hs, prior_config = priors,
+                             plausible_range = c(0, 200))
+
+# 3. Fit; convergence is checked automatically (R-hat, bulk/tail-ESS, divergences, E-BFMI)
+fit <- fit_model_with_prior(train, kid_score ~ mom_iq + mom_hs, prior_config = priors)
+
+# 4. How much did the prior matter? (power-scaling; no refitting)
+prior_sensitivity(fit)
+plot_prior_posterior(fit)
+
+# 5. Score predictions with proper scoring rules
+perf <- evaluate_model_performance(fit, test)
+
+# 6. Assemble a reporting checklist (Bayesian Analysis Reporting Guidelines)
+workflow_report(fit, prior_check = pc, performance = perf)
+```
+
+## What’s inside
+
+| Workflow stage | Functions | Methods |
+|----|----|----|
+| Specify priors | [`prior_spec()`](https://elkronos.github.io/bmbeR/reference/prior_spec.md), [`prior_config()`](https://elkronos.github.io/bmbeR/reference/prior_config.md) | Validated specs; rstanarm and 1.x formats accepted |
+| Data-informed priors | [`empirical_bayes_priors()`](https://elkronos.github.io/bmbeR/reference/empirical_bayes_priors.md) | Unit-information (Kass & Wasserman, 1995); empirical Bayes shrinkage (Morris, 1983); power priors (Ibrahim & Chen, 2000) |
+| Check priors | [`prior_predictive_check()`](https://elkronos.github.io/bmbeR/reference/prior_predictive_check.md) | Prior predictive simulation (Gabry et al., 2019) with plausibility summaries |
+| Fit | [`fit_model_with_prior()`](https://elkronos.github.io/bmbeR/reference/fit_model_with_prior.md) | [`rstanarm::stan_glm()`](https://mc-stan.org/rstanarm/reference/stan_glm.html) with automatic diagnostics |
+| Verify computation | [`check_convergence()`](https://elkronos.github.io/bmbeR/reference/check_convergence.md), [`generate_plot()`](https://elkronos.github.io/bmbeR/reference/generate_plot.md) | Rank-normalised R-hat, bulk/tail-ESS (Vehtari et al., 2021); divergences, E-BFMI (Betancourt, 2017); rank plots |
+| Prior influence | [`prior_sensitivity()`](https://elkronos.github.io/bmbeR/reference/prior_sensitivity.md), [`plot_prior_posterior()`](https://elkronos.github.io/bmbeR/reference/plot_prior_posterior.md) | Power-scaling (Kallioinen et al., 2023), covariance-based local sensitivity (Giordano et al., 2018), PSIS (Vehtari et al., 2024), posterior contraction, prior-data conflict z (Box, 1980) |
+| Alternative priors | [`sensitivity_analysis()`](https://elkronos.github.io/bmbeR/reference/sensitivity_analysis.md) | Refits with posterior shifts and PSIS-LOO comparison (Vehtari et al., 2017) |
+| Evaluate | [`evaluate_model_performance()`](https://elkronos.github.io/bmbeR/reference/evaluate_model_performance.md), [`compare_performance()`](https://elkronos.github.io/bmbeR/reference/compare_performance.md) | Held-out ELPD, CRPS, Brier score (Gneiting & Raftery, 2007), coverage, AUC |
+| Report | [`workflow_report()`](https://elkronos.github.io/bmbeR/reference/workflow_report.md) | Checklist following BARG (Kruschke, 2021) |
+
+## Why bmbeR?
+
+rstanarm fits the models, bayesplot draws the plots, loo and posterior
+compute the diagnostics. bmbeR adds what is missing for rstanarm users:
+
+- **Power-scaling prior sensitivity for rstanarm fits.** The priorsense
+  package supports brms, cmdstanr, rstan, JAGS and NIMBLE models; bmbeR
+  reconstructs rstanarm’s log-prior from `prior_summary()` (including
+  autoscaling and the centred intercept), so the diagnostics work on any
+  `stan_glm()` fit.
+- **A diagnosis that separates informative from conflicting priors.**
+  The `conflict_z` statistic equals the classic prior predictive z-score
+  in the normal model.
+- **Data-informed priors that don’t count the data twice.** Centring a
+  tight prior on estimates from the same data gives about 83% coverage
+  for nominal 95% intervals; the methods here are calibrated or use
+  external data.
+- **Honest predictive evaluation.** Proper scoring rules on held-out
+  data, with paired model comparison.
+- **One object per stage, one report at the end.**
+
+## Learn more
+
+- [Get started](https://elkronos.github.io/bmbeR/articles/bmbeR.html):
+  the full workflow on real data
+- [Choosing
+  priors](https://elkronos.github.io/bmbeR/articles/priors.html): scale,
+  autoscaling, prior predictive checks
+- [Data-informed
+  priors](https://elkronos.github.io/bmbeR/articles/data-informed-priors.html):
+  unit-information, empirical Bayes and power priors
+- [Convergence
+  diagnostics](https://elkronos.github.io/bmbeR/articles/convergence.html):
+  what each check means and what failure looks like
+- [Prior
+  sensitivity](https://elkronos.github.io/bmbeR/articles/prior-sensitivity.html):
+  theory and practice of power-scaling
+- [Predictive
+  evaluation](https://elkronos.github.io/bmbeR/articles/predictive-evaluation.html):
+  proper scoring rules and calibration
+- [Design
+  review](https://github.com/elkronos/bmbeR/blob/main/REVIEW.md): the
+  adversarial review of version 1.01 that led to 2.0.0
+
+## Scope
+
+bmbeR supports generalised linear models fitted with
+[`rstanarm::stan_glm()`](https://mc-stan.org/rstanarm/reference/stan_glm.html)
+(gaussian, binomial, Poisson, negative binomial, Gamma and
+inverse-Gaussian families). Multilevel models and brms are out of scope.
+See the [design
+review](https://github.com/elkronos/bmbeR/blob/main/REVIEW.md#remaining-limitations)
+for known limitations.
+
+## References
+
+- Betancourt, M. (2017). A conceptual introduction to Hamiltonian Monte
+  Carlo. *arXiv:1701.02434*.
+- Box, G. E. P. (1980). Sampling and Bayes’ inference in scientific
+  modelling and robustness. *JRSS A*, 143(4), 383–430.
+- Gabry, J., et al. (2019). Visualization in Bayesian workflow. *JRSS
+  A*, 182(2), 389–402.
+- Gelman, A., et al. (2020). Bayesian workflow. *arXiv:2011.01808*.
+- Giordano, R., Broderick, T., & Jordan, M. I. (2018). Covariances,
+  robustness, and variational Bayes. *JMLR*, 19(51), 1–49.
+- Gneiting, T., & Raftery, A. E. (2007). Strictly proper scoring rules,
+  prediction, and estimation. *JASA*, 102(477), 359–378.
+- Ibrahim, J. G., & Chen, M.-H. (2000). Power prior distributions for
+  regression models. *Statistical Science*, 15(1), 46–60.
+- Kallioinen, N., et al. (2023). Detecting and diagnosing prior and
+  likelihood sensitivity with power-scaling. *Statistics and Computing*,
+  34, 57.
+- Kass, R. E., & Wasserman, L. (1995). A reference Bayesian test for
+  nested hypotheses. *JASA*, 90(431), 928–934.
+- Kruschke, J. K. (2021). Bayesian analysis reporting guidelines.
+  *Nature Human Behaviour*, 5, 1282–1291.
+- Morris, C. N. (1983). Parametric empirical Bayes inference: Theory and
+  applications. *JASA*, 78(381), 47–55.
+- Vehtari, A., Gelman, A., & Gabry, J. (2017). Practical Bayesian model
+  evaluation using leave-one-out cross-validation and WAIC. *Statistics
+  and Computing*, 27(5), 1413–1432.
+- Vehtari, A., et al. (2021). Rank-normalization, folding, and
+  localization: An improved R-hat. *Bayesian Analysis*, 16(2), 667–718.
+- Vehtari, A., et al. (2024). Pareto smoothed importance sampling.
+  *JMLR*, 25(72), 1–58.
+
+## License
+
+GPL (\>= 3)
+
+# Package index
+
+## Specify priors
+
+- [`prior_spec()`](https://elkronos.github.io/bmbeR/reference/prior_spec.md)
+  : Specify a prior distribution
+- [`prior_config()`](https://elkronos.github.io/bmbeR/reference/prior_config.md)
+  : Combine priors for a regression model
+- [`empirical_bayes_priors()`](https://elkronos.github.io/bmbeR/reference/empirical_bayes_priors.md)
+  : Data-informed priors: unit-information, empirical Bayes and power
+  priors
+- [`build_stanarm_priors()`](https://elkronos.github.io/bmbeR/reference/build_stanarm_priors.md)
+  : Translate prior specifications into rstanarm prior arguments
+
+## Check priors before fitting
+
+- [`prior_predictive_check()`](https://elkronos.github.io/bmbeR/reference/prior_predictive_check.md)
+  : Prior predictive check
+- [`plot(`*`<bmb_prior_check>`*`)`](https://elkronos.github.io/bmbeR/reference/plot.bmb_prior_check.md)
+  : Plot a prior predictive check
+
+## Fit and check the computation
+
+- [`fit_model_with_prior()`](https://elkronos.github.io/bmbeR/reference/fit_model_with_prior.md)
+  : Fit a Bayesian regression model with explicit priors
+- [`check_convergence()`](https://elkronos.github.io/bmbeR/reference/check_convergence.md)
+  : Check MCMC convergence with current best-practice diagnostics
+- [`plot(`*`<bmb_convergence>`*`)`](https://elkronos.github.io/bmbeR/reference/plot.bmb_convergence.md)
+  : Plot convergence diagnostics
+- [`generate_plot()`](https://elkronos.github.io/bmbeR/reference/generate_plot.md)
+  : Diagnostic plots for MCMC draws
+
+## Quantify prior influence
+
+- [`prior_sensitivity()`](https://elkronos.github.io/bmbeR/reference/prior_sensitivity.md)
+  : Prior and likelihood sensitivity by power-scaling
+- [`plot(`*`<bmb_prior_sensitivity>`*`)`](https://elkronos.github.io/bmbeR/reference/plot.bmb_prior_sensitivity.md)
+  : Plot power-scaling sensitivity
+- [`sensitivity_analysis()`](https://elkronos.github.io/bmbeR/reference/sensitivity_analysis.md)
+  : Sensitivity analysis across alternative priors
+- [`plot(`*`<bmb_sensitivity>`*`)`](https://elkronos.github.io/bmbeR/reference/plot.bmb_sensitivity.md)
+  : Plot posterior intervals across prior configurations
+- [`plot_prior_posterior()`](https://elkronos.github.io/bmbeR/reference/plot_prior_posterior.md)
+  : Compare each prior with its posterior
+- [`plot_posterior_distributions()`](https://elkronos.github.io/bmbeR/reference/plot_posterior_distributions.md)
+  : Plot posterior intervals
+
+## Evaluate and report
+
+- [`evaluate_model_performance()`](https://elkronos.github.io/bmbeR/reference/evaluate_model_performance.md)
+  : Evaluate predictive performance on test data
+- [`compare_performance()`](https://elkronos.github.io/bmbeR/reference/compare_performance.md)
+  : Compare models on the same held-out data
+- [`workflow_report()`](https://elkronos.github.io/bmbeR/reference/workflow_report.md)
+  : Bayesian analysis report (BARG checklist)
+
+## Simulate from distributions
+
+- [`student_t_prior()`](https://elkronos.github.io/bmbeR/reference/prior_generators.md)
+  [`normal_prior()`](https://elkronos.github.io/bmbeR/reference/prior_generators.md)
+  [`cauchy_prior()`](https://elkronos.github.io/bmbeR/reference/prior_generators.md)
+  [`uniform_prior()`](https://elkronos.github.io/bmbeR/reference/prior_generators.md)
+  [`beta_prior()`](https://elkronos.github.io/bmbeR/reference/prior_generators.md)
+  [`gamma_prior()`](https://elkronos.github.io/bmbeR/reference/prior_generators.md)
+  [`binomial_prior()`](https://elkronos.github.io/bmbeR/reference/prior_generators.md)
+  [`poisson_prior()`](https://elkronos.github.io/bmbeR/reference/prior_generators.md)
+  [`lognormal_prior()`](https://elkronos.github.io/bmbeR/reference/prior_generators.md)
+  [`bernoulli_prior()`](https://elkronos.github.io/bmbeR/reference/prior_generators.md)
+  : Simulate from common prior distributions
+- [`original_distributions`](https://elkronos.github.io/bmbeR/reference/original_distributions.md)
+  [`distributions`](https://elkronos.github.io/bmbeR/reference/original_distributions.md)
+  : Registry of prior generators
+- [`add_distribution()`](https://elkronos.github.io/bmbeR/reference/add_distribution.md)
+  [`reset_distributions()`](https://elkronos.github.io/bmbeR/reference/add_distribution.md)
+  [`get_prior_distribution()`](https://elkronos.github.io/bmbeR/reference/add_distribution.md)
+  : Manage and draw from a registry of prior generators
+
+## Package
+
+- [`bmbeR`](https://elkronos.github.io/bmbeR/reference/bmbeR-package.md)
+  [`bmbeR-package`](https://elkronos.github.io/bmbeR/reference/bmbeR-package.md)
+  : bmbeR: Prior-Focused Bayesian Model Building and Evaluation
+
+# Articles
+
+### Workflow guides
+
+- [Choosing priors: scale, autoscaling and prior predictive
+  checks](https://elkronos.github.io/bmbeR/articles/priors.md):
+- [Data-informed priors without
+  double-dipping](https://elkronos.github.io/bmbeR/articles/data-informed-priors.md):
+- [Convergence diagnostics: what they mean and what failure looks
+  like](https://elkronos.github.io/bmbeR/articles/convergence.md):
+- [Prior sensitivity: power-scaling diagnostics and
+  refitting](https://elkronos.github.io/bmbeR/articles/prior-sensitivity.md):
+- [Predictive evaluation with proper scoring
+  rules](https://elkronos.github.io/bmbeR/articles/predictive-evaluation.md):

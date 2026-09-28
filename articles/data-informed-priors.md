@@ -1,0 +1,271 @@
+# Data-informed priors without double-dipping
+
+``` r
+
+library(bmbeR)
+```
+
+It is tempting to “let the data choose the prior”: fit a quick
+regression, centre each prior on the estimate, give it the estimate’s
+standard error as its scale, then fit the Bayesian model to the same
+data. bmbeR 1.x did exactly this. This article shows why it fails and
+describes three published alternatives implemented in
+[`empirical_bayes_priors()`](https://elkronos.github.io/bmbeR/reference/empirical_bayes_priors.md).
+
+## The problem: counting the data twice
+
+With a prior of $`N(\hat\beta, \mathrm{SE}^2)`$ and a likelihood that is
+approximately $`N(\hat\beta, \mathrm{SE}^2)`$, the posterior is
+approximately $`N(\hat\beta, \mathrm{SE}^2/2)`$: the data have been used
+twice, so the posterior claims twice the information the data contain.
+Credible intervals are too narrow by a factor of $`\sqrt{2}`$.
+
+A quick simulation, using the normal approximation to the posterior,
+shows the consequence for the coverage of nominal 95% intervals:
+
+``` r
+
+set.seed(1)
+n <- 50
+sims <- replicate(4000, {
+  x <- rnorm(n)
+  y <- 1 + 0.5 * x + rnorm(n)
+  est <- summary(lm(y ~ x))$coefficients["x", ]
+  b <- est[[1]]; se <- est[[2]]
+  post_sd <- c(
+    flat             = se,                                # likelihood only
+    same_data_prior  = se / sqrt(2),                      # N(b, se^2) prior, bmbeR 1.x
+    unit_information = se * sqrt(n / (n + 1))             # N(b, n se^2) prior
+  )
+  abs(b - 0.5) <= 1.96 * post_sd
+})
+coverage <- rowMeans(sims)
+round(coverage, 3)
+#>             flat  same_data_prior unit_information 
+#>            0.941            0.821            0.937
+```
+
+Centring a tight prior on the same data drops the coverage of “95%”
+intervals to 82%, while the unit-information prior, described next, is
+as well calibrated as the likelihood alone.
+
+## Unit-information priors
+
+The unit-information prior (Kass & Wasserman, 1995) is centred on the
+estimate but carries the information of a *single* observation: its
+variance is $`n`$ times the sampling variance. It regularises extreme
+estimates and makes the prior’s scale automatically appropriate to the
+units of the data, while adding only $`1/n`$ of the data’s information.
+It is the prior implicitly behind BIC.
+
+``` r
+
+data(kidiq, package = "rstanarm")
+ui <- empirical_bayes_priors(kidiq, kid_score ~ mom_iq + mom_hs)
+ui
+#> <bmb_prior_config> data-informed priors
+#>   method : unit-information prior (Kass & Wasserman, 1995) 
+#>   family : gaussian  (link scale); n = 434 
+#>   type   : normal 
+#> 
+#>                   term estimate std_error prior_location prior_scale
+#>  (Intercept) [centred]   86.800    0.8710         86.800       18.10
+#>                 mom_iq    0.564    0.0606          0.564        1.26
+#>                 mom_hs    5.950    2.2100          5.950       46.10
+```
+
+The output plugs straight into
+[`fit_model_with_prior()`](https://elkronos.github.io/bmbeR/reference/fit_model_with_prior.md).
+The intercept prior is placed on the intercept at the predictor means,
+which is the parameter rstanarm puts its intercept prior on.
+
+``` r
+
+fit_ui <- fit_model_with_prior(kidiq, kid_score ~ mom_iq + mom_hs,
+                               prior_config = ui, refresh = 0)
+prior_sensitivity(fit_ui)$summary[, c("variable", "contraction", "diagnosis")]
+#>                variable contraction diagnosis
+#> (Intercept) (Intercept)   0.9976662         -
+#> mom_iq           mom_iq   0.9976664         -
+#> mom_hs           mom_hs   0.9978140         -
+#> sigma             sigma   0.9990832         -
+```
+
+The posterior contraction is close to $`n/(n+1) =`$ 0.9977, as theory
+predicts: the prior contributes about one observation’s worth of
+information.
+
+For logistic, Poisson and other GLMs,
+[`empirical_bayes_priors()`](https://elkronos.github.io/bmbeR/reference/empirical_bayes_priors.md)
+fits a GLM in the same family, so the priors are on the correct (link)
+scale. Always pass the same `formula` and `family` you will fit;
+[`fit_model_with_prior()`](https://elkronos.github.io/bmbeR/reference/fit_model_with_prior.md)
+checks that the coefficients match.
+
+## Empirical Bayes shrinkage
+
+When a model has many coefficients of comparable size, a classic result
+(James & Stein, 1961; Efron & Morris, 1973) is that shrinking all
+estimates towards zero by a common, *data-estimated* amount beats
+estimating each on its own. `method = "eb_shrinkage"` implements the
+parametric empirical Bayes version (Morris, 1983):
+
+1.  put coefficients on a common scale by multiplying by the predictors’
+    standard deviations;
+2.  estimate the spread of effects $`\tau`$ by maximising the marginal
+    likelihood of $`b_j \sim N(0, \tau^2 + \mathrm{SE}_j^2)`$;
+3.  give each coefficient a zero-centred prior with scale
+    $`\tau / \mathrm{sd}(x_j)`$.
+
+To see the benefit we simulate data with 30 weak predictors and only 80
+observations, then score predictions on a large test set:
+
+``` r
+
+set.seed(2024)
+k <- 30
+beta <- rnorm(k, 0, 0.3)
+simulate <- function(n) {
+  X <- matrix(rnorm(n * k), n, k, dimnames = list(NULL, sprintf("x%02d", 1:k)))
+  data.frame(X, y = 1 + drop(X %*% beta) + rnorm(n, 0, 2))
+}
+train <- simulate(80)
+test  <- simulate(2000)
+f <- reformulate(sprintf("x%02d", 1:k), "y")
+
+eb <- empirical_bayes_priors(train, f, method = "eb_shrinkage")
+attr(eb, "tau")  # estimated spread of the (standardised) effects; truth is 0.3
+#> [1] 0.4472819
+
+fits <- list(
+  rstanarm_default = fit_model_with_prior(train, f, refresh = 0),
+  unit_information = fit_model_with_prior(train, f, prior_config = empirical_bayes_priors(train, f),
+                                          refresh = 0),
+  eb_shrinkage     = fit_model_with_prior(train, f, prior_config = eb, refresh = 0)
+)
+perf <- lapply(fits, evaluate_model_performance, data_test = test)
+compare_performance(perf)
+#>              model      elpd elpd_diff  se_diff
+#> 1     eb_shrinkage -4482.334    0.0000  0.00000
+#> 2 rstanarm_default -4851.664 -369.3306 20.94354
+#> 3 unit_information -4862.388 -380.0546 21.47128
+sapply(fits, function(fit) sqrt(mean((coef(fit)[-1] - beta)^2)))  # coefficient RMSE
+#> rstanarm_default unit_information     eb_shrinkage 
+#>        0.3486679        0.3528727        0.2027739
+```
+
+Shrinkage improves both the held-out log score and the accuracy of the
+coefficients. It needs at least three coefficients and works best when
+they are exchangeable (similar in kind). When the data contain little
+information about the spread of effects, the marginal-likelihood
+estimate of $`\tau`$ can collapse to zero; bmbeR then floors it and
+warns:
+
+``` r
+
+eb_mtcars <- empirical_bayes_priors(
+  mtcars, mpg ~ cyl + disp + hp + drat + wt + qsec + vs + am + gear + carb,
+  method = "eb_shrinkage"
+)
+#> Warning: The empirical Bayes estimate of tau (8.74e-05) is below the median
+#> standard error; flooring it at 1.32 to avoid a degenerate prior. The data carry
+#> little information about the spread of effects; consider method =
+#> "unit_information".
+```
+
+Empirical Bayes still uses the data twice (to estimate $`\tau`$ and to
+fit), but only through one hyperparameter; the resulting understatement
+of uncertainty is small when there are many coefficients.
+
+## Power priors from historical data
+
+When a previous study measured the same effects, its data can inform the
+prior legitimately because they are *different* data. The power prior
+(Ibrahim & Chen, 2000) raises the historical likelihood to a power
+$`a_0 \in (0, 1]`$ that discounts it: $`a_0 = 1`$ pools the studies,
+$`a_0 = 0.5`$ counts each historical observation as half an observation.
+bmbeR uses the normal approximation: the prior is centred on the
+historical estimates with variances inflated by $`1/a_0`$.
+
+Here we split `kidiq` into a “historical” and a “current” study:
+
+``` r
+
+set.seed(7)
+hist_rows <- sample(nrow(kidiq), 234)
+historical <- kidiq[hist_rows, ]
+current    <- kidiq[-hist_rows, ]
+
+fits_pp <- list(no_borrowing = fit_model_with_prior(current, kid_score ~ mom_iq + mom_hs,
+                                                    refresh = 0))
+for (a0 in c(0.25, 0.5, 1)) {
+  pp <- suppressMessages(empirical_bayes_priors(historical, kid_score ~ mom_iq + mom_hs,
+                                                method = "power", a0 = a0))
+  fits_pp[[paste0("a0 = ", a0)]] <- fit_model_with_prior(current, kid_score ~ mom_iq + mom_hs,
+                                                         prior_config = pp, refresh = 0)
+}
+t(sapply(fits_pp, function(fit) {
+  d <- as.matrix(fit)
+  c(mom_iq_mean = mean(d[, "mom_iq"]), mom_iq_sd = sd(d[, "mom_iq"]),
+    mom_hs_mean = mean(d[, "mom_hs"]), mom_hs_sd = sd(d[, "mom_hs"]))
+}))
+#>              mom_iq_mean  mom_iq_sd mom_hs_mean mom_hs_sd
+#> no_borrowing   0.5237918 0.09086421    2.412982  3.269058
+#> a0 = 0.25      0.5352575 0.07822058    3.746800  2.844832
+#> a0 = 0.5       0.5395821 0.07067468    4.637494  2.565556
+#> a0 = 1         0.5458662 0.06148034    5.797963  2.225015
+```
+
+Borrowing more (larger $`a_0`$) narrows the posterior. Choosing $`a_0`$
+is a substantive judgement about how similar the studies are; run
+[`prior_sensitivity()`](https://elkronos.github.io/bmbeR/reference/prior_sensitivity.md)
+on the result, since a historical study that differs from the current
+one shows up as a prior-data conflict:
+
+``` r
+
+prior_sensitivity(fits_pp[["a0 = 1"]])$summary[, c("variable", "contraction", "conflict_z", "diagnosis")]
+#>                variable contraction  conflict_z         diagnosis
+#> (Intercept) (Intercept)   0.4517090  0.68926837 informative prior
+#> mom_iq           mom_iq   0.4347898  0.39151255 informative prior
+#> mom_hs           mom_hs   0.4796157  1.51293171 informative prior
+#> sigma             sigma   0.9978386 -0.02976192                 -
+```
+
+Never use the analysed data as “historical” data: that is the
+double-dipping of the first section, with $`a_0 = 1`$.
+
+## Which method when?
+
+| Situation | Method |
+|----|----|
+| No external information; want a scale-aware, minimally informative prior | `"unit_information"` |
+| Many exchangeable coefficients, few observations each | `"eb_shrinkage"` |
+| A previous study measured the same effects | `"power"` with historical data |
+| Genuine substantive knowledge | [`prior_spec()`](https://elkronos.github.io/bmbeR/reference/prior_spec.md) directly |
+
+Add `type = "student_t"` to any method to give the priors heavier tails,
+so that the data can override them if prior and data turn out to
+conflict (O’Hagan & Pericchi, 2012).
+
+## References
+
+Efron, B., & Morris, C. (1973). Stein’s estimation rule and its
+competitors—an empirical Bayes approach. *JASA*, 68(341), 117–130.
+
+Ibrahim, J. G., & Chen, M.-H. (2000). Power prior distributions for
+regression models. *Statistical Science*, 15(1), 46–60.
+
+James, W., & Stein, C. (1961). Estimation with quadratic loss.
+*Proceedings of the Fourth Berkeley Symposium*, 1, 361–379.
+
+Kass, R. E., & Wasserman, L. (1995). A reference Bayesian test for
+nested hypotheses and its relationship to the Schwarz criterion. *JASA*,
+90(431), 928–934.
+
+Morris, C. N. (1983). Parametric empirical Bayes inference: Theory and
+applications. *JASA*, 78(381), 47–55.
+
+O’Hagan, A., & Pericchi, L. (2012). Bayesian heavy-tailed models and
+conflict resolution: A review. *Brazilian Journal of Probability and
+Statistics*, 26(4), 372–401.
