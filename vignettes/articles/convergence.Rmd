@@ -1,0 +1,130 @@
+---
+title: "Convergence diagnostics: what they mean and what failure looks like"
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7,
+                      fig.height = 4.5, dpi = 96, out.width = "100%")
+options(mc.cores = 2)
+```
+
+```{r, message = FALSE}
+library(bmbeR)
+```
+
+MCMC produces draws that are only guaranteed to represent the posterior in
+the limit. Convergence diagnostics check whether *these* draws are good
+enough. `check_convergence()` applies the current recommendations of the
+Stan developers and Vehtari et al. (2021).
+
+| Diagnostic | Default threshold | What failure means |
+|---|---|---|
+| Rank-normalised split-R-hat | ≤ 1.01 | Chains disagree with each other (or drift within themselves): they have not explored the same distribution. |
+| Bulk-ESS | ≥ 100 × chains | Too few effectively independent draws to estimate means and medians reliably. |
+| Tail-ESS | ≥ 100 × chains | Too few to estimate 5% and 95% quantiles, i.e. interval endpoints. |
+| Divergent transitions | 0 | The sampler hit regions of high curvature it cannot explore; results may be biased (Betancourt, 2017). |
+| E-BFMI | ≥ 0.3 per chain | The momentum resampling explores the energy distribution poorly (often heavy tails). |
+| Max tree depth hits | reported only | An efficiency issue: the sampler needed very long trajectories. |
+
+Two changes from older practice matter. The traditional R-hat threshold of
+1.1 misses many failures that 1.01 catches, and the rank-normalised version
+also detects chains that differ in scale or have heavy tails. Tail-ESS was
+introduced because a good bulk-ESS can hide unreliable interval endpoints.
+
+## A healthy fit
+
+```{r}
+data(kidiq, package = "rstanarm")
+fit <- fit_model_with_prior(kidiq, kid_score ~ mom_iq + mom_hs, refresh = 0)
+conv <- attr(fit, "bmb_convergence")
+conv
+head(conv$parameters)
+```
+
+Rank plots show, for each chain, a histogram of the ranks of its draws among
+all chains. If the chains are sampling the same distribution, every
+histogram is approximately uniform:
+
+```{r}
+plot(conv, type = "rank")
+```
+
+## When computation fails: often a modelling problem
+
+The "folk theorem of statistical computing" (Gelman, 2008) says that when
+you have computational problems, there is often a problem with your model.
+A logistic regression on *separable* data, where a predictor perfectly
+predicts the outcome, has no finite maximum-likelihood estimate. With a flat
+prior the posterior is improper, and no sampler can succeed:
+
+```{r}
+set.seed(3)
+sep <- data.frame(x = c(rnorm(20, -1), rnorm(20, 1)))
+sep$y <- as.integer(sep$x > 0)  # x perfectly separates the classes
+
+flat <- prior_config(intercept = prior_spec("flat"), slope = prior_spec("flat"))
+fit_flat <- fit_model_with_prior(sep, y ~ x, family = binomial(),
+                                 prior_config = flat, refresh = 0)
+attr(fit_flat, "bmb_convergence")
+```
+
+R-hat, both ESS measures and the divergence check all fail, and almost every
+iteration saturates the maximum tree depth as the sampler takes ever longer
+trajectories. The trace plots show chains wandering off towards infinity,
+each in its own direction:
+
+```{r}
+plot(attr(fit_flat, "bmb_convergence"), type = "trace")
+```
+
+Notice that `fit_model_with_prior()` warned but still returned the fit, so
+it can be inspected. Pass `on_nonconvergence = "error"` to stop instead.
+
+A weakly informative prior makes the posterior proper and the computation
+easy. It also encodes something we genuinely believe: coefficients of a
+logistic regression are not infinite.
+
+```{r}
+fit_wi <- fit_model_with_prior(sep, y ~ x, family = binomial(), refresh = 0)
+attr(fit_wi, "bmb_convergence")
+```
+
+## Too few iterations
+
+Even for a well-behaved model, too few iterations give unreliable estimates.
+With 60 iterations per chain, warm-up is too short for adaptation:
+
+```{r}
+fit_short <- suppressWarnings(
+  fit_model_with_prior(kidiq, kid_score ~ mom_iq + mom_hs, iter = 60,
+                       refresh = 0, on_nonconvergence = "ignore")
+)
+attr(fit_short, "bmb_convergence")
+```
+
+The remedy is simply to run longer chains (the default `iter = 2000` is
+ample for most regression models).
+
+## Using the diagnostics in code
+
+```{r}
+conv <- check_convergence(fit, rhat_threshold = 1.01, min_ess = 400)
+if (!isTRUE(conv$converged)) stop("Fix the computation before interpreting results.")
+```
+
+`check_convergence()` accepts both rstanarm (`stanreg`) and rstan (`stanfit`)
+objects. `save_plots = TRUE` writes rank and trace plots to a PDF.
+`generate_plot()` produces further diagnostic plots (histograms, densities,
+autocorrelation) as a list of ggplot objects.
+
+## References
+
+Betancourt, M. (2017). A conceptual introduction to Hamiltonian Monte Carlo.
+*arXiv:1701.02434*.
+
+Gelman, A. (2008). The folk theorem of statistical computing. *Statistical
+Modeling, Causal Inference, and Social Science* (blog), 13 May 2008.
+
+Vehtari, A., Gelman, A., Simpson, D., Carpenter, B., & Bürkner, P.-C. (2021).
+Rank-normalization, folding, and localization: An improved R-hat for
+assessing convergence of MCMC. *Bayesian Analysis*, 16(2), 667–718.
