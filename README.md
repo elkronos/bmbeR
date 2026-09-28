@@ -16,6 +16,10 @@ prior influenced the result, evaluate predictions honestly, and report it all.
 
 Website with walkthroughs: **<https://elkronos.github.io/bmbeR/>**
 
+Branches: `main` holds the package source; `github-pages` holds the built
+website and is written automatically by the pkgdown workflow (do not edit it
+by hand).
+
 ## Installation
 
 ```r
