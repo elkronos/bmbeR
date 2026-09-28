@@ -1,0 +1,79 @@
+url: https://elkronos.github.io/bmbeR/
+
+template:
+  bootstrap: 5
+  bootswatch: flatly
+
+home:
+  title: "bmbeR: prior-focused Bayesian workflow for rstanarm"
+
+navbar:
+  structure:
+    left: [intro, reference, articles, news]
+    right: [search, github]
+  components:
+    articles:
+      text: Articles
+      menu:
+      - text: "Choosing priors"
+        href: articles/priors.html
+      - text: "Data-informed priors"
+        href: articles/data-informed-priors.html
+      - text: "Convergence diagnostics"
+        href: articles/convergence.html
+      - text: "Prior sensitivity"
+        href: articles/prior-sensitivity.html
+      - text: "Predictive evaluation"
+        href: articles/predictive-evaluation.html
+      - text: -------
+      - text: "Design review (v1.01 → 2.0.0)"
+        href: REVIEW.html
+
+articles:
+- title: Workflow guides
+  navbar: ~
+  contents:
+  - articles/priors
+  - articles/data-informed-priors
+  - articles/convergence
+  - articles/prior-sensitivity
+  - articles/predictive-evaluation
+
+reference:
+- title: Specify priors
+  contents:
+  - prior_spec
+  - prior_config
+  - empirical_bayes_priors
+  - build_stanarm_priors
+- title: Check priors before fitting
+  contents:
+  - prior_predictive_check
+  - plot.bmb_prior_check
+- title: Fit and check the computation
+  contents:
+  - fit_model_with_prior
+  - check_convergence
+  - plot.bmb_convergence
+  - generate_plot
+- title: Quantify prior influence
+  contents:
+  - prior_sensitivity
+  - plot.bmb_prior_sensitivity
+  - sensitivity_analysis
+  - plot.bmb_sensitivity
+  - plot_prior_posterior
+  - plot_posterior_distributions
+- title: Evaluate and report
+  contents:
+  - evaluate_model_performance
+  - compare_performance
+  - workflow_report
+- title: Simulate from distributions
+  contents:
+  - prior_generators
+  - original_distributions
+  - add_distribution
+- title: Package
+  contents:
+  - bmbeR-package

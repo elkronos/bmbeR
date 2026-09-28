@@ -1,0 +1,48 @@
+Package: bmbeR
+Title: Prior-Focused Bayesian Model Building and Evaluation for 'rstanarm'
+Version: 2.0.0
+Authors@R: 
+    person("elkronos", role = c("aut", "cre"),
+           email = "jchase.msu@gmail.com")
+Description: A prior-centred Bayesian workflow for regression models fitted
+    with 'rstanarm'. Provides validated prior specifications, defensible
+    data-informed priors (unit-information priors, Kass and Wasserman (1995)
+    <doi:10.1080/01621459.1995.10476592>; parametric empirical Bayes
+    shrinkage, Morris (1983) <doi:10.1080/01621459.1983.10477914>; power
+    priors from historical data, Ibrahim and Chen (2000)
+    <doi:10.1214/ss/1009212673>), prior predictive checks, modern MCMC
+    convergence diagnostics (rank-normalised R-hat and bulk/tail effective
+    sample size, Vehtari et al. (2021) <doi:10.1214/20-BA1221>), prior and
+    likelihood sensitivity analysis by power-scaling without refitting
+    (Kallioinen et al. (2023) <doi:10.1007/s11222-023-10366-5>), predictive
+    evaluation with proper scoring rules (Gneiting and Raftery (2007)
+    <doi:10.1198/016214506000001437>), and a reporting checklist aligned with
+    the Bayesian Analysis Reporting Guidelines (Kruschke (2021)
+    <doi:10.1038/s41562-021-01177-7>).
+License: GPL (>= 3)
+URL: https://elkronos.github.io/bmbeR/, https://github.com/elkronos/bmbeR
+BugReports: https://github.com/elkronos/bmbeR/issues
+Depends: 
+    R (>= 4.1.0)
+Imports: 
+    bayesplot (>= 1.8.0),
+    ggplot2 (>= 3.3.0),
+    grDevices,
+    loo (>= 2.4.0),
+    posterior (>= 1.0.0),
+    rstan (>= 2.21.0),
+    rstanarm (>= 2.21.1),
+    stats,
+    utils
+Suggests: 
+    knitr,
+    rmarkdown,
+    testthat (>= 3.0.0),
+    withr
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+Config/Needs/website: pkgdown
+Encoding: UTF-8
+Language: en-GB
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.1

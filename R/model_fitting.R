@@ -1,166 +1,129 @@
-# model_fitting.R
-# =============================================================================
-# This script defines functions to fit Bayesian regression models using 
-# rstanarm::stan_glm. It integrates prior specifications for the intercept 
-# and slopes based on user-specified hyperparameters.
-#
-# Supported prior distributions for coefficients (for rstanarm use) are:
-#   - "student_t": constructed via rstanarm::student_t()
-#   - "normal":    constructed via rstanarm::normal()
-#   - "cauchy":    constructed via rstanarm::cauchy()
-#
-# The script also checks convergence using the check_convergence() function.
-#
-# Dependencies:
-#   - rstanarm, rstan, parallel
-#   - model_convergence.R (for check_convergence())
-#   - utilities.R and distributions.R (for any additional helpers)
-# =============================================================================
-
-# Load required packages
-if (!requireNamespace("rstanarm", quietly = TRUE)) {
-  install.packages("rstanarm")
-}
-library(rstanarm)
-
-if (!requireNamespace("rstan", quietly = TRUE)) {
-  install.packages("rstan")
-}
-library(rstan)
-
-if (!requireNamespace("parallel", quietly = TRUE)) {
-  install.packages("parallel")
-}
-library(parallel)
-
-# It is assumed that check_convergence() is defined in model_convergence.R;
-# ensure that script is sourced prior to calling fit_model_with_prior().
-# For example: source("model_convergence.R")
-
-# -----------------------------------------------------------------------------
-# Build Stanarm Prior Objects from Hyperparameter Specifications
-# -----------------------------------------------------------------------------
-#' Build Prior Objects for rstanarm
+#' Fit a Bayesian regression model with explicit priors
 #'
-#' Converts user-specified hyperparameter lists for the intercept and slopes into
-#' prior objects for rstanarm::stan_glm.
+#' Fits a generalised linear model with [rstanarm::stan_glm()] using priors
+#' specified with [prior_config()] (or derived with
+#' [empirical_bayes_priors()]), then runs [check_convergence()] on the
+#' result.
 #'
-#' @param intercept_config A list with elements:
-#'   - type: one of "student_t", "normal", or "cauchy"
-#'   - For "student_t": nu, mu, sigma
-#'   - For "normal": mu, sigma
-#'   - For "cauchy": location, scale
-#' @param slope_config A list with the same structure as intercept_config.
+#' @details
+#' **Default priors.** Components of `prior_config` that are `NULL` use
+#' rstanarm's weakly informative defaults, which are *autoscaled* to the
+#' data (Gelman et al., 2008). bmbeR 1.x instead used an unscaled
+#' `student_t(3, 0, 2.5)` prior for all coefficients, which can dominate the
+#' likelihood when variables are not on a unit scale.
 #'
-#' @return A list with elements:
-#'   - prior_intercept: prior object for the intercept
-#'   - prior: prior object for the slopes
+#' **Convergence.** Diagnostics are always computed and stored in
+#' `attr(fit, "bmb_convergence")`. By default a failed check issues a
+#' warning but still returns the fit, so that the (expensive) model is not
+#' lost and can be inspected; use `on_nonconvergence = "error"` to stop
+#' instead.
 #'
+#' **Parallel chains.** bmbeR does not choose the number of cores. Set
+#' `options(mc.cores = parallel::detectCores())` or pass `cores = ` through
+#' `...`.
+#'
+#' @param data A data frame containing all variables in `formula`.
+#' @param formula A model formula, e.g. `y ~ x1 + x2`.
+#' @param family A family object, family function or family name:
+#'   `gaussian`, `binomial`, `poisson`, `Gamma`, `inverse.gaussian` or
+#'   `neg_binomial_2`.
+#' @param prior_config Priors as a [prior_config()] object, the output of
+#'   [empirical_bayes_priors()], a bmbeR 1.x list with `intercept` and `slope`
+#'   elements, or `NULL` for rstanarm's defaults.
+#' @param chains Number of Markov chains (at least 4 are recommended).
+#' @param iter Iterations per chain, including warm-up (half by default).
+#' @param seed Random seed passed to Stan, for reproducibility.
+#' @param on_nonconvergence What to do if [check_convergence()] fails:
+#'   `"warn"` (default), `"error"` or `"ignore"`.
+#' @param convergence_args A list of further arguments for
+#'   [check_convergence()], e.g. `list(rhat_threshold = 1.01)`.
+#' @param ... Further arguments passed to [rstanarm::stan_glm()], e.g.
+#'   `cores`, `refresh = 0`, `adapt_delta` or `weights`.
+#'
+#' @return A `stanreg` object with attribute `bmb_convergence` (a
+#'   [check_convergence()] result).
+#' @references
+#' Gelman, A., Jakulin, A., Pittau, M. G., & Su, Y.-S. (2008). A weakly
+#' informative default prior distribution for logistic and other regression
+#' models. *The Annals of Applied Statistics*, 2(4), 1360–1383.
+#' \doi{10.1214/08-AOAS191}
+#' @seealso [prior_predictive_check()] to check priors before fitting,
+#'   [prior_sensitivity()] to check their influence afterwards.
+#' @examples
+#' \donttest{
+#' data(kidiq, package = "rstanarm")
+#' fit <- fit_model_with_prior(
+#'   kidiq, kid_score ~ mom_iq + mom_hs,
+#'   prior_config = prior_config(
+#'     intercept = prior_spec("normal", location = 80, scale = 20),
+#'     slope     = prior_spec("normal", location = 0, scale = c(1, 10))
+#'   ),
+#'   chains = 4, iter = 1000, refresh = 0
+#' )
+#' attr(fit, "bmb_convergence")
+#' }
 #' @export
-build_stanarm_priors <- function(intercept_config, slope_config) {
-  # Build prior for intercept
-  if (intercept_config$type == "student_t") {
-    prior_intercept <- rstanarm::student_t(df = intercept_config$nu,
-                                           location = intercept_config$mu,
-                                           scale = intercept_config$sigma)
-  } else if (intercept_config$type == "normal") {
-    prior_intercept <- rstanarm::normal(location = intercept_config$mu,
-                                        scale = intercept_config$sigma)
-  } else if (intercept_config$type == "cauchy") {
-    prior_intercept <- rstanarm::cauchy(location = intercept_config$location,
-                                        scale = intercept_config$scale)
-  } else {
-    stop(sprintf("Unsupported distribution type for intercept: '%s'. Supported types: 'student_t', 'normal', 'cauchy'.",
-                 intercept_config$type))
-  }
-  
-  # Build prior for slopes
-  if (slope_config$type == "student_t") {
-    prior <- rstanarm::student_t(df = slope_config$nu,
-                                 location = slope_config$mu,
-                                 scale = slope_config$sigma)
-  } else if (slope_config$type == "normal") {
-    prior <- rstanarm::normal(location = slope_config$mu,
-                              scale = slope_config$sigma)
-  } else if (slope_config$type == "cauchy") {
-    prior <- rstanarm::cauchy(location = slope_config$location,
-                              scale = slope_config$scale)
-  } else {
-    stop(sprintf("Unsupported distribution type for slopes: '%s'. Supported types: 'student_t', 'normal', 'cauchy'.",
-                 slope_config$type))
-  }
-  
-  list(prior_intercept = prior_intercept, prior = prior)
-}
-
-
-# -----------------------------------------------------------------------------
-# Fit Bayesian Model with Specified Priors
-# -----------------------------------------------------------------------------
-#' Fit Bayesian Model with User-Specified Priors
-#'
-#' Fits a Bayesian regression model using rstanarm::stan_glm with user-specified 
-#' prior distributions for the intercept and slopes. If no prior configuration is 
-#' provided, default priors are used (student_t with df = 3, location = 0, scale = 2.5).
-#'
-#' @param data A data.frame containing the dataset.
-#' @param formula A formula specifying the model (e.g., y ~ x1 + x2).
-#' @param family A family object (default is gaussian()).
-#' @param prior_config A list with two elements, "intercept" and "slope", each of 
-#'   which is a list of hyperparameters (see details in build_stanarm_priors()). If 
-#'   NULL, default priors are used.
-#' @param chains Number of MCMC chains (default is 4).
-#' @param iter Number of iterations per chain (default is 4000).
-#' @param seed Random seed (default is 1234).
-#' @param ... Additional arguments passed to rstanarm::stan_glm.
-#'
-#' @return A fitted stanreg model object.
-#'
-#' @export
-fit_model_with_prior <- function(data, formula, family = gaussian(), 
+fit_model_with_prior <- function(data, formula, family = gaussian(),
                                  prior_config = NULL,
-                                 chains = 4, iter = 4000, seed = 1234, ...) {
-  # Ensure that all variables in the formula exist in data
-  required_columns <- all.vars(formula)
-  if (!all(required_columns %in% colnames(data))) {
-    stop(sprintf("Data does not contain necessary columns for formula: %s", deparse(formula)))
+                                 chains = 4, iter = 2000, seed = 1234,
+                                 on_nonconvergence = c("warn", "error", "ignore"),
+                                 convergence_args = list(), ...) {
+  on_nonconvergence <- match.arg(on_nonconvergence)
+  validate_data_formula(data, formula)
+  validate_positive_integer(chains, "chains")
+  validate_positive_integer(iter, "iter")
+  family <- normalize_family(family)
+  check_response_family(get_response(formula, data), family)
+  cfg <- as_prior_config(prior_config)
+  check_prior_terms(cfg, formula, data)
+
+  fit <- run_stan_glm(data, formula, family, cfg, chains = chains, iter = iter,
+                      seed = seed, ...)
+
+  conv <- do.call(check_convergence, c(list(fit), convergence_args))
+  attr(fit, "bmb_convergence") <- conv
+  attr(fit, "bmb_prior_config") <- cfg
+  if (!conv$converged) {
+    msg <- paste0("MCMC convergence checks failed:\n  - ",
+                  paste(conv$issues, collapse = "\n  - "),
+                  "\nInspect attr(fit, \"bmb_convergence\"). Do not interpret the results until resolved.")
+    if (on_nonconvergence == "error") stop(msg, call. = FALSE)
+    if (on_nonconvergence == "warn") warning(msg, call. = FALSE)
   }
-  
-  # Set default prior configuration if not provided
-  if (is.null(prior_config)) {
-    default_prior <- list(type = "student_t", nu = 3, mu = 0, sigma = 2.5)
-    prior_config <- list(intercept = default_prior, slope = default_prior)
-  } else {
-    if (!("intercept" %in% names(prior_config)) || !("slope" %in% names(prior_config))) {
-      stop("prior_config must be a list with 'intercept' and 'slope' elements.")
+  fit
+}
+
+# Shared by fit_model_with_prior() and prior_predictive_check().
+run_stan_glm <- function(data, formula, family, cfg, chains, iter, seed, ...) {
+  args <- c(
+    list(formula = formula, data = data, family = family,
+         chains = chains, iter = iter, seed = seed),
+    prior_args_from_config(cfg),
+    list(...)
+  )
+  do.call(rstanarm::stan_glm, args)
+}
+
+# For priors derived by empirical_bayes_priors(), make sure the coefficient
+# order matches the model that will be fitted (vector priors are positional).
+check_prior_terms <- function(cfg, formula, data) {
+  terms_prior <- attr(cfg, "terms")
+  slope <- cfg$slope
+  mm_names <- colnames(model.matrix(formula, model.frame(formula, data, na.action = na.omit)))
+  k <- length(setdiff(mm_names, "(Intercept)"))
+  if (!is.null(terms_prior) && !identical(terms_prior, mm_names)) {
+    stop(sprintf(paste0("The priors were derived for coefficients [%s] but the model has [%s]. ",
+                        "Use the same formula (and factor levels) in both steps."),
+                 paste(terms_prior, collapse = ", "), paste(mm_names, collapse = ", ")),
+         call. = FALSE)
+  }
+  if (!is.null(slope) && slope$type != "flat") {
+    len <- max(length(slope$location), length(slope$scale))
+    if (len > 1L && len != k) {
+      stop(sprintf("The slope prior has %d values but the model has %d coefficients (%s).",
+                   len, k, paste(setdiff(mm_names, "(Intercept)"), collapse = ", ")),
+           call. = FALSE)
     }
   }
-  
-  # Build the prior objects using the helper function
-  priors <- build_stanarm_priors(prior_config$intercept, prior_config$slope)
-  
-  # Basic compatibility check between family and dependent variable type
-  dependent_var <- all.vars(formula)[1]
-  dependent_type <- class(data[[dependent_var]])
-  if (family$family == "gaussian" && !(dependent_type %in% c("numeric", "integer"))) {
-    stop(sprintf("Dependent variable '%s' must be numeric/integer for gaussian family.", dependent_var))
-  } else if (family$family == "binomial" && !(dependent_type %in% c("numeric", "factor"))) {
-    stop(sprintf("Dependent variable '%s' is not appropriate for binomial family.", dependent_var))
-  }
-  
-  # Fit the Bayesian model using stan_glm
-  fit <- rstanarm::stan_glm(formula, data = data, family = family,
-                            prior_intercept = priors$prior_intercept,
-                            prior = priors$prior,
-                            chains = chains, iter = iter, seed = seed,
-                            cores = parallel::detectCores(), 
-                            ...)
-  
-  # Check convergence using the check_convergence() function.
-  # It is assumed that check_convergence() is available in the session.
-  if (!check_convergence(fit)) {
-    stop("Model did not converge. Please review diagnostics and adjust parameters.")
-  }
-  
-  return(fit)
+  invisible(TRUE)
 }

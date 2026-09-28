@@ -1,0 +1,200 @@
+---
+title: "Get started: a prior-focused Bayesian workflow"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Get started: a prior-focused Bayesian workflow}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7,
+                      fig.height = 4.5, dpi = 96, out.width = "100%")
+options(mc.cores = 2)
+```
+
+bmbeR walks a regression model through the stages of a Bayesian workflow
+(Gelman et al., 2020), with the prior treated as a first-class part of the
+model rather than an afterthought:
+
+1. **Specify** priors on a meaningful scale.
+2. **Check** what they imply *before* seeing the outcome (prior predictive check).
+3. **Fit** the model and **verify** the computation (modern MCMC diagnostics).
+4. **Quantify** how much the prior influenced the result (power-scaling sensitivity).
+5. **Evaluate** predictions with proper scoring rules.
+6. **Report** everything in a checklist aligned with the Bayesian Analysis
+   Reporting Guidelines (Kruschke, 2021).
+
+Models are fitted with [rstanarm](https://mc-stan.org/rstanarm/), so every
+result is an ordinary `stanreg` object that works with the rest of the Stan
+ecosystem.
+
+```{r, message = FALSE}
+library(bmbeR)
+data(kidiq, package = "rstanarm")
+head(kidiq)
+```
+
+The `kidiq` data (Gelman & Hill, 2007) record the test scores of 434 children
+together with their mothers' IQ and whether the mother finished high school.
+We hold out a test set to evaluate predictions at the end.
+
+```{r}
+set.seed(42)
+test_rows <- sample(nrow(kidiq), 100)
+train <- kidiq[-test_rows, ]
+test  <- kidiq[test_rows, ]
+```
+
+## 1. Specify priors
+
+Priors only make sense relative to the units of the data. Children's test
+scores are on an IQ-like scale (mean about 100, SD about 15), so:
+
+* the **intercept** is the expected score of a child whose mother has average
+  IQ and schooling (rstanarm puts the intercept prior at the predictor means,
+  so you don't have to centre the predictors yourself): `normal(100, 20)`;
+* a one-point increase in the mother's IQ is unlikely to change the child's
+  score by more than about two points: `normal(0, 1)` for `mom_iq`;
+* finishing high school might plausibly shift scores by up to about 20 points:
+  `normal(0, 10)` for `mom_hs`;
+* the residual SD is probably of the order of 15 points: `exponential(1/15)`.
+
+```{r}
+priors <- prior_config(
+  intercept = prior_spec("normal", location = 100, scale = 20),
+  slope     = prior_spec("normal", location = 0, scale = c(1, 10)),
+  aux       = prior_spec("exponential", rate = 1 / 15)
+)
+priors
+```
+
+If you have no substantive knowledge to encode, leave components as `NULL`
+to use rstanarm's autoscaled weakly informative defaults, or derive priors
+from data with `empirical_bayes_priors()` (see the article on
+*Data-informed priors*).
+
+## 2. Check the priors before fitting
+
+A prior predictive check simulates data from the priors alone. Test scores
+cannot be negative, and scores above 200 would be absurd, so we declare
+that range as plausible:
+
+```{r}
+pc <- prior_predictive_check(train, kid_score ~ mom_iq + mom_hs,
+                             prior_config = priors,
+                             plausible_range = c(0, 200), refresh = 0)
+pc
+plot(pc)
+```
+
+The simulated data sets are wider than the observed data, as they should be
+(the priors are weakly informative), but almost all simulated values stay
+within the plausible range.
+
+## 3. Fit the model and verify the computation
+
+```{r}
+fit <- fit_model_with_prior(train, kid_score ~ mom_iq + mom_hs,
+                            prior_config = priors,
+                            chains = 4, iter = 1000, refresh = 0)
+attr(fit, "bmb_convergence")
+```
+
+`fit_model_with_prior()` runs `check_convergence()` automatically using the
+criteria of Vehtari et al. (2021): rank-normalised R-hat below 1.01, bulk-
+and tail-ESS of at least 100 per chain, no divergent transitions and
+adequate E-BFMI. If a check fails it warns and still returns the fit so you
+can investigate; rank plots are the most sensitive visual check:
+
+```{r}
+plot(attr(fit, "bmb_convergence"), type = "rank")
+```
+
+## 4. How much did the prior matter?
+
+`plot_prior_posterior()` overlays each prior on its posterior:
+
+```{r}
+plot_prior_posterior(fit)
+```
+
+`prior_sensitivity()` quantifies the same question without refitting, by
+power-scaling the prior and the likelihood (Kallioinen et al., 2023):
+
+```{r}
+sens <- prior_sensitivity(fit)
+sens
+```
+
+```{r, include = FALSE}
+flagged <- sens$summary$variable[sens$summary$diagnosis != "-"]
+conflict <- sens$summary$variable[sens$summary$diagnosis == "prior-data conflict"]
+```
+
+How to read the table:
+
+* `contraction` near 1 means the data have sharpened the prior a lot.
+* The `*_sens` columns measure how much the posterior mean and SD respond to
+  strengthening the prior or the likelihood (0 = not at all).
+* `conflict_z` measures disagreement between prior and data in standard-error
+  units; values beyond ±2 indicate a prior-data conflict.
+
+`r if (length(flagged) == 0) "No parameter is sensitive to the prior: the likelihood dominates, so the conclusions do not hinge on the exact priors chosen." else paste0("The diagnosis flags ", paste0("\x60", flagged, "\x60", collapse = " and "), ": for ", if (length(flagged) == 1) "this parameter" else "these parameters", " the prior contributes a non-negligible share of the posterior precision. ", if (length(conflict) == 0) "Because every |conflict_z| is well below 2, prior and data agree, which is what an informative-but-sensible prior should look like. The remaining parameters are dominated by the likelihood." else "For the parameters labelled as a conflict, prior and data disagree and the prior deserves a second look.")`
+The *Prior sensitivity* article shows what weakly informative, conflicting
+and weakly identified cases look like.
+
+## 5. Evaluate predictions
+
+```{r}
+perf <- evaluate_model_performance(fit, test)
+perf
+```
+
+Besides RMSE and MAE of the posterior mean, bmbeR reports proper scoring
+rules that also reward honest uncertainty: the held-out log predictive
+density (ELPD) and the continuous ranked probability score (CRPS). Coverage
+of the 90% predictive intervals close to 90% indicates well-calibrated
+uncertainty.
+
+## 6. Report
+
+```{r}
+report <- workflow_report(fit, prior_check = pc, sensitivity = sens,
+                          performance = perf)
+report
+```
+
+Items marked `[check]` need attention and `[ -- ]` items have not been done
+yet. The report adds posterior predictive p-values and PSIS-LOO
+cross-validation, which are cheap to compute from the fit.
+
+## Where next
+
+* *Choosing priors*: why scale matters, autoscaling, and prior predictive
+  checks for logistic regression.
+* *Data-informed priors*: unit-information, empirical Bayes and power priors,
+  and why naively re-using the data is a mistake.
+* *Convergence diagnostics*: what each criterion means and what failure looks like.
+* *Prior sensitivity*: the theory behind the diagnostics, and refitting under
+  alternative priors.
+* *Predictive evaluation*: proper scoring rules and model comparison on held-out data.
+
+## References
+
+Gelman, A., & Hill, J. (2007). *Data Analysis Using Regression and
+Multilevel/Hierarchical Models*. Cambridge University Press.
+
+Gelman, A., Vehtari, A., Simpson, D., et al. (2020). Bayesian workflow.
+*arXiv:2011.01808*.
+
+Kallioinen, N., Paananen, T., Bürkner, P.-C., & Vehtari, A. (2023). Detecting
+and diagnosing prior and likelihood sensitivity with power-scaling.
+*Statistics and Computing*, 34, 57.
+
+Kruschke, J. K. (2021). Bayesian analysis reporting guidelines. *Nature Human
+Behaviour*, 5, 1282–1291.
+
+Vehtari, A., Gelman, A., Simpson, D., Carpenter, B., & Bürkner, P.-C. (2021).
+Rank-normalization, folding, and localization: An improved R-hat for
+assessing convergence of MCMC. *Bayesian Analysis*, 16(2), 667–718.
