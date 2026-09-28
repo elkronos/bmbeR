@@ -194,15 +194,17 @@ power_scaling_core <- function(theta, log_prior, log_lik, alpha = c(0.8, 1.25),
     base <- if (comp == "prior") log_prior else log_lik
     for (a in alpha) {
       if (sd(base) == 0 || a == 1) {
-        w <- rep(1 / S, S)
+        # Nothing to reweight: the perturbed posterior is the posterior.
+        m_w <- mu
+        sd_w <- sdv
         k <- -Inf
       } else {
         ps <- suppressWarnings(loo::psis((a - 1) * base, r_eff = NA))
         w <- as.numeric(stats::weights(ps, log = FALSE, normalize = TRUE))
         k <- as.numeric(loo::pareto_k_values(ps))
+        m_w <- colSums(theta * w)
+        sd_w <- sqrt(colSums(sweep(theta, 2L, m_w)^2 * w))
       }
-      m_w <- colSums(theta * w)
-      sd_w <- sqrt(colSums(sweep(theta, 2L, m_w)^2 * w))
       pert[[length(pert) + 1L]] <- data.frame(
         component = comp, alpha = a, variable = colnames(theta),
         mean = unname(m_w), sd = unname(sd_w),
@@ -354,8 +356,9 @@ plot.bmb_prior_sensitivity <- function(x, ...) {
 #' @param ... Further arguments passed to [fit_model_with_prior()].
 #'
 #' @return An object of class `bmb_sensitivity` with elements `summary`
-#'   (posterior summaries by configuration and parameter), `comparison` (the
-#'   [loo::loo_compare()] table), `metric` (named vector of the chosen LOO
+#'   (posterior summaries by configuration and parameter), `comparison` (a
+#'   data frame of paired PSIS-LOO differences, as in [loo::loo_compare()],
+#'   with one row per configuration), `metric` (named vector of the chosen LOO
 #'   estimate), `converged` (named logical), `loo` (list of loo objects) and,
 #'   if `keep_fits = TRUE`, `fits`.
 #' @references
@@ -426,7 +429,7 @@ sensitivity_analysis <- function(data, formula, prior_configurations,
   rownames(summ) <- NULL
 
   metric_vals <- vapply(loos, function(l) l$estimates[metric, "Estimate"], numeric(1))
-  comparison <- if (length(loos) > 1L) loo::loo_compare(loos) else NULL
+  comparison <- if (length(loos) > 1L) compare_loos(loos) else NULL
 
   structure(list(
     summary = summ, comparison = comparison, metric = metric_vals,
@@ -434,6 +437,25 @@ sensitivity_analysis <- function(data, formula, prior_configurations,
     fits = if (keep_fits) fits else NULL, reference = labels[ref],
     shift_threshold = shift_threshold
   ), class = "bmb_sensitivity")
+}
+
+# Paired LOO comparison with the same definitions as loo::loo_compare(),
+# computed directly so the result does not depend on that function's output
+# format (a matrix before loo 2.10, a data frame afterwards).
+compare_loos <- function(loos) {
+  pw <- lapply(loos, function(l) l$pointwise[, "elpd_loo"])
+  elpd <- vapply(pw, sum, numeric(1))
+  best <- which.max(elpd)
+  diffs <- lapply(pw, function(x) x - pw[[best]])
+  out <- data.frame(
+    elpd_diff = vapply(diffs, sum, numeric(1)),
+    se_diff = vapply(diffs, function(d) sqrt(length(d)) * sd(d), numeric(1)),
+    elpd_loo = elpd,
+    se_elpd_loo = vapply(loos, function(l) l$estimates["elpd_loo", "SE"], numeric(1)),
+    p_loo = vapply(loos, function(l) l$estimates["p_loo", "Estimate"], numeric(1)),
+    row.names = names(loos)
+  )
+  out[order(-out$elpd_loo), , drop = FALSE]
 }
 
 normalize_configurations <- function(x) {

@@ -220,6 +220,10 @@ test_that("sensitivity_analysis compares posteriors and LOO across priors", {
   expect_true(row$flag)
   expect_named(sens$metric, c("default", "wrong"))
   expect_equal(rownames(sens$comparison)[1], "default")
+  # Same numbers as loo::loo_compare(), whatever its output format.
+  ref <- as.data.frame(loo::loo_compare(sens$loo))
+  expect_equal(sort(sens$comparison$elpd_diff), sort(ref$elpd_diff), tolerance = 1e-8)
+  expect_equal(sort(sens$comparison$se_diff), sort(ref$se_diff), tolerance = 1e-8)
   expect_output(print(sens), "Predictive comparison")
   expect_s3_class(plot(sens), "ggplot")
 
