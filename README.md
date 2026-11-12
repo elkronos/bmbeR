@@ -146,5 +146,5 @@ GPL (>= 3)
 
 ## Repository
 
-`main` holds the package source. `github-pages` holds the built website; the
-pkgdown workflow writes it, so do not edit it by hand.
+`main` holds the package source. The pkgdown workflow builds the website from
+`main` and publishes it with GitHub Pages.
