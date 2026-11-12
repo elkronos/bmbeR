@@ -32,6 +32,7 @@ test_that("offsets are used when scoring test data", {
   p2 <- evaluate_model_performance(f2, d[1:50, ], offset = log(d$t[1:50]))
   expect_equal(p2$RMSE, p1$RMSE, tolerance = 0.05)
   expect_error(evaluate_model_performance(f1, d[1:50, ], offset = log(d$t[1:50])), "must be NULL")
+  expect_error(evaluate_model_performance(f1, d[1:50, ], formula = y ~ x), "differs from the model's formula")
 })
 
 test_that("data-masked arguments work and the stored call names the data", {
