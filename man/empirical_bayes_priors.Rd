@@ -12,6 +12,7 @@ empirical_bayes_priors(
   type = c("normal", "student_t", "cauchy"),
   a0 = 0.5,
   df = 3,
+  weights = NULL,
   dist_types = NULL
 )
 }
@@ -34,14 +35,19 @@ one you will fit.}
 
 \item{df}{Degrees of freedom when \code{type = "student_t"}.}
 
+\item{weights}{Optional weights for the maximum-likelihood fit: a numeric
+vector, or the name of a column of \code{data} (unquoted, as in \code{\link[stats:glm]{stats::glm()}}).
+Use the same weights as in the model you will fit.}
+
 \item{dist_types}{Deprecated (bmbeR 1.x). rstanarm requires a single prior
 family for all coefficients; use \code{type}.}
 }
 \value{
 A \code{\link[=prior_config]{prior_config()}} object (class \code{bmb_prior_config}) that can be
 passed to \code{\link[=fit_model_with_prior]{fit_model_with_prior()}}, with attributes \code{table} (a data frame
-of estimates, standard errors and prior parameters), \code{method}, \code{terms}
-and, for \code{"eb_shrinkage"}, \code{tau}.
+of estimates, standard errors and prior parameters), \code{method}, \code{terms},
+\code{n} (the effective sample size used by the unit-information prior) and,
+for \code{"eb_shrinkage"}, \code{tau}.
 }
 \description{
 Derives priors for the intercept and regression coefficients of a
@@ -62,7 +68,10 @@ each prior is centred at the estimate with variance \code{n} times the
 sampling variance, i.e. the prior carries the information of a single
 observation. It is the prior implicit in BIC and is suitable when the
 same data are used to fit the model, because it adds only \code{1/n} of the
-data's information.
+data's information. \code{n} counts Bernoulli trials for a binomial response
+given as \code{cbind(successes, failures)}, and is the sum of \code{weights} when
+weights are given (they are treated as frequency weights, or as the
+number of trials for proportions).
 \item \code{method = "eb_shrinkage"} (parametric empirical Bayes; Efron & Morris,
 1973; Morris, 1983): coefficients are placed on a common scale by
 multiplying by the predictor standard deviations, and a shared prior
@@ -79,7 +88,10 @@ or external} data, not the data you will analyse. The prior is the
 normal approximation to the historical likelihood raised to the power
 \code{a0}: centred at the historical estimates, with variances inflated by
 \code{1 / a0}. \code{a0 = 1} borrows the historical data at full weight; smaller
-values discount it.
+values discount it. The historical predictor means usually differ from
+those of the analysed data, so \code{\link[=fit_model_with_prior]{fit_model_with_prior()}} and
+\code{\link[=prior_predictive_check]{prior_predictive_check()}} re-express the intercept prior at the
+analysed data's predictor means before fitting.
 }
 
 With \code{type = "student_t"} or \code{"cauchy"}, the same locations and scales are

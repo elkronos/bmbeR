@@ -15,13 +15,19 @@
 #' * Iterations that **saturate the maximum tree depth** are reported as an
 #'   efficiency warning; they do not by themselves invalidate the draws.
 #'
+#' Parameters whose draws are all identical (for example constant generated
+#' quantities in a `stanfit`) have no defined R-hat or ESS; they are excluded
+#' from the checks and listed in the notes.
+#'
 #' @param model_fit A `stanreg` (rstanarm) or `stanfit` (rstan) object fitted
 #'   by MCMC.
 #' @param rhat_threshold Maximum acceptable R-hat.
 #' @param min_ess Minimum acceptable bulk- and tail-ESS. Defaults to
 #'   `100 * number of chains`.
-#' @param max_divergent Maximum acceptable number of divergent transitions.
-#' @param min_bfmi Minimum acceptable E-BFMI per chain.
+#' @param max_divergent Maximum acceptable number of divergent transitions
+#'   (a non-negative whole number).
+#' @param min_bfmi Minimum acceptable E-BFMI per chain (a non-negative
+#'   number).
 #' @param pars Optional character vector of parameters to check. By default
 #'   all model parameters are checked.
 #' @param save_plots If `TRUE`, save rank and trace plots to `plot_path`.
@@ -31,7 +37,8 @@
 #'
 #' @return An object of class `bmb_convergence`: a list with elements
 #'   `converged` (logical), `parameters` (a data frame with R-hat, bulk-ESS
-#'   and tail-ESS per parameter), `sampler` (divergences, tree-depth hits,
+#'   and tail-ESS per parameter; also available with `as.data.frame()`),
+#'   `sampler` (divergences, tree-depth hits,
 #'   E-BFMI), `issues` (character vector of problems), `thresholds`, and the
 #'   draws needed by the `plot()` method. Use `isTRUE(x$converged)` in code.
 #'
@@ -115,6 +122,13 @@ convergence_from_draws <- function(arr, sampler = NULL, rhat_threshold = 1.01,
                                    min_ess = NULL, max_divergent = 0,
                                    min_bfmi = 0.3) {
   validate_numeric(rhat_threshold, "rhat_threshold", positive = TRUE)
+  if (rhat_threshold < 1) stop("`rhat_threshold` must be at least 1.", call. = FALSE)
+  validate_numeric(max_divergent, "max_divergent")
+  if (max_divergent < 0 || max_divergent != round(max_divergent)) {
+    stop("`max_divergent` must be a non-negative whole number.", call. = FALSE)
+  }
+  validate_numeric(min_bfmi, "min_bfmi")
+  if (min_bfmi < 0) stop("`min_bfmi` must be non-negative.", call. = FALSE)
   n_chains <- dim(arr)[2L]
   n_draws <- dim(arr)[1L] * n_chains
   min_ess <- min_ess %||% (100 * n_chains)
@@ -132,26 +146,37 @@ convergence_from_draws <- function(arr, sampler = NULL, rhat_threshold = 1.01,
     ess_tail = summ$ess_tail,
     stringsAsFactors = FALSE
   )
-  params$rhat_ok <- !is.na(params$rhat) & params$rhat <= rhat_threshold
-  params$ess_ok <- !is.na(params$ess_bulk) & !is.na(params$ess_tail) &
-    params$ess_bulk >= min_ess & params$ess_tail >= min_ess
+  # Constant draws have no defined R-hat or ESS; they are not evidence of
+  # non-convergence.
+  params$constant <- apply(arr, 3L, function(v) all(is.finite(v)) && all(v == v[1L]))
+  params$rhat_ok <- params$constant | (!is.na(params$rhat) & params$rhat <= rhat_threshold)
+  params$ess_ok <- params$constant | (!is.na(params$ess_bulk) & !is.na(params$ess_tail) &
+    params$ess_bulk >= min_ess & params$ess_tail >= min_ess)
 
   issues <- character()
   notes <- character()
+  if (any(params$constant)) {
+    notes <- c(notes, sprintf("Constant draws (excluded from R-hat and ESS checks): %s.",
+                              paste(utils::head(params$variable[params$constant], 5L), collapse = ", ")))
+  }
   if (n_chains < 2L) {
     issues <- c(issues, "Only one chain: R-hat cannot detect non-convergence between chains. Run at least 4 chains.")
   }
   if (any(!params$rhat_ok)) {
     bad <- params$variable[!params$rhat_ok]
-    issues <- c(issues, sprintf("R-hat > %s for %d parameter(s): %s (max %.3f).",
+    bad_rhat <- params$rhat[!params$rhat_ok]
+    worst <- if (all(is.na(bad_rhat))) "R-hat could not be computed" else
+      sprintf("max %.3f", max(bad_rhat, na.rm = TRUE))
+    issues <- c(issues, sprintf("R-hat > %s or not computable for %d parameter(s): %s (%s).",
                                 rhat_threshold, length(bad), paste(utils::head(bad, 5L), collapse = ", "),
-                                max(params$rhat, na.rm = TRUE)))
+                                worst))
   }
   if (any(!params$ess_ok)) {
     bad <- params$variable[!params$ess_ok]
-    issues <- c(issues, sprintf("Bulk- or tail-ESS < %.0f for %d parameter(s): %s (min bulk %.0f, min tail %.0f).",
+    issues <- c(issues, sprintf("Bulk- or tail-ESS < %.0f for %d parameter(s): %s (min bulk %s, min tail %s).",
                                 min_ess, length(bad), paste(utils::head(bad, 5L), collapse = ", "),
-                                min(params$ess_bulk, na.rm = TRUE), min(params$ess_tail, na.rm = TRUE)))
+                                safe_extreme(params$ess_bulk[!params$ess_ok], min, "%.0f"),
+                                safe_extreme(params$ess_tail[!params$ess_ok], min, "%.0f")))
   }
   if (!is.null(sampler)) {
     if (sampler$divergent > max_divergent) {
@@ -183,18 +208,27 @@ convergence_from_draws <- function(arr, sampler = NULL, rhat_threshold = 1.01,
   ), class = "bmb_convergence")
 }
 
+# max()/min() of the non-missing values, formatted, or "NA" when there are none.
+safe_extreme <- function(x, f, fmt) {
+  x <- x[!is.na(x)]
+  if (length(x) == 0L) "NA" else sprintf(fmt, f(x))
+}
+
+#' @export
+as.data.frame.bmb_convergence <- function(x, ...) x$parameters
+
 #' @export
 print.bmb_convergence <- function(x, digits = 3, ...) {
   status <- if (x$converged) "PASSED" else "FAILED"
   cat(sprintf("<bmb_convergence> %s  (%d chains, %d post-warm-up draws)\n",
               status, x$n_chains, x$n_draws))
-  cat(sprintf("  Criteria: R-hat <= %s; bulk/tail-ESS >= %.0f; divergences <= %d; E-BFMI >= %s\n",
-              x$thresholds$rhat, x$thresholds$min_ess, x$thresholds$max_divergent,
+  cat(sprintf("  Criteria: R-hat <= %s; bulk/tail-ESS >= %.0f; divergences <= %s; E-BFMI >= %s\n",
+              x$thresholds$rhat, x$thresholds$min_ess, format(x$thresholds$max_divergent),
               x$thresholds$min_bfmi))
   p <- x$parameters
-  cat(sprintf("  Max R-hat: %.3f | min bulk-ESS: %.0f | min tail-ESS: %.0f\n",
-              max(p$rhat, na.rm = TRUE), min(p$ess_bulk, na.rm = TRUE),
-              min(p$ess_tail, na.rm = TRUE)))
+  cat(sprintf("  Max R-hat: %s | min bulk-ESS: %s | min tail-ESS: %s\n",
+              safe_extreme(p$rhat, max, "%.3f"), safe_extreme(p$ess_bulk, min, "%.0f"),
+              safe_extreme(p$ess_tail, min, "%.0f")))
   if (!is.null(x$sampler)) {
     cat(sprintf("  Divergences: %d | max-treedepth hits: %d | min E-BFMI: %.2f\n",
                 x$sampler$divergent, x$sampler$treedepth_hits,

@@ -7,7 +7,8 @@
 plot_prior_posterior(fit, pars = NULL, n_grid = 300L)
 }
 \arguments{
-\item{fit}{A \code{stanreg} object from \code{\link[rstanarm:stan_glm]{rstanarm::stan_glm()}}.}
+\item{fit}{A \code{stanreg} object from \code{\link[rstanarm:stan_glm]{rstanarm::stan_glm()}} or
+\code{\link[rstanarm:stan_glmer]{rstanarm::stan_glmer()}} (population-level parameters only).}
 
 \item{pars}{Parameters to show (default: all).}
 

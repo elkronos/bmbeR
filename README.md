@@ -70,15 +70,15 @@ workflow_report(fit, prior_check = pc, performance = perf)
 
 | Workflow stage | Functions | Methods |
 |---|---|---|
-| Specify priors | `prior_spec()`, `prior_config()` | Validated specs; rstanarm and 1.x formats accepted |
+| Specify priors | `prior_spec()`, `prior_config()`, `prior_table()` | Validated specs; rstanarm and 1.x formats accepted; the priors a fit used after autoscaling |
 | Data-informed priors | `empirical_bayes_priors()` | Unit-information (Kass & Wasserman, 1995); empirical Bayes shrinkage (Morris, 1983); power priors (Ibrahim & Chen, 2000) |
 | Check priors | `prior_predictive_check()` | Prior predictive simulation (Gabry et al., 2019) with plausibility summaries |
 | Fit | `fit_model_with_prior()` | `rstanarm::stan_glm()` with automatic diagnostics |
 | Verify computation | `check_convergence()`, `generate_plot()` | Rank-normalised R-hat, bulk/tail-ESS (Vehtari et al., 2021); divergences, E-BFMI (Betancourt, 2017); rank plots |
-| Prior influence | `prior_sensitivity()`, `plot_prior_posterior()` | Power-scaling (Kallioinen et al., 2023), covariance-based local sensitivity (Giordano et al., 2018), PSIS (Vehtari et al., 2024), posterior contraction, prior-data conflict z (Box, 1980) |
-| Alternative priors | `sensitivity_analysis()` | Refits with posterior shifts and PSIS-LOO comparison (Vehtari et al., 2017) |
+| Prior influence | `prior_sensitivity()`, `plot_prior_posterior()`, `as_priorsense_draws()` | Power-scaling (Kallioinen et al., 2023), covariance-based local sensitivity (Giordano et al., 2018), PSIS (Vehtari et al., 2024), posterior contraction, prior-data conflict z (Box, 1980) |
+| Alternative priors | `sensitivity_analysis()` | Refits (optionally in parallel) with posterior shifts and PSIS-LOO or K-fold comparison (Vehtari et al., 2017) |
 | Evaluate | `evaluate_model_performance()`, `compare_performance()` | Held-out ELPD, CRPS, Brier score (Gneiting & Raftery, 2007), coverage, AUC |
-| Report | `workflow_report()` | Checklist following BARG (Kruschke, 2021) |
+| Report | `workflow_report()` | Checklist following BARG (Kruschke, 2021); prints as text or Markdown |
 
 ## Why bmbeR?
 
@@ -88,8 +88,9 @@ compute the diagnostics. bmbeR adds what is missing for rstanarm users:
 * **Power-scaling prior sensitivity for rstanarm fits.** The priorsense
   package supports brms, cmdstanr, rstan, JAGS and NIMBLE models; bmbeR
   reconstructs rstanarm's log-prior from `prior_summary()` (including
-  autoscaling and the centred intercept), so the diagnostics work on any
-  `stan_glm()` fit.
+  autoscaling and the centred intercept), so the diagnostics work on
+  `stan_glm()` and `stan_glmer()` fits, and `as_priorsense_draws()` hands
+  them to priorsense.
 * **A diagnosis that separates informative from conflicting priors.** The
   `conflict_z` statistic equals the classic prior predictive z-score in the
   normal model.
@@ -99,7 +100,9 @@ compute the diagnostics. bmbeR adds what is missing for rstanarm users:
   data.
 * **Honest predictive evaluation.** Proper scoring rules on held-out data,
   with paired model comparison.
-* **One object per stage, one report at the end.**
+* **One object per stage, one report at the end.** Every result has an
+  `as.data.frame()` method, and `format(report, type = "markdown")` drops the
+  checklist into R Markdown or Quarto.
 
 ## Learn more
 
@@ -115,7 +118,11 @@ compute the diagnostics. bmbeR adds what is missing for rstanarm users:
 
 bmbeR supports generalised linear models fitted with `rstanarm::stan_glm()`
 (gaussian, binomial, Poisson, negative binomial, Gamma and inverse-Gaussian
-families). Multilevel models and brms are out of scope. See the
+families). For multilevel models fitted with `rstanarm::stan_glmer()`, the
+prior tools (`prior_table()`, `prior_sensitivity()`, `plot_prior_posterior()`,
+`as_priorsense_draws()` and `workflow_report()`) cover the population-level
+priors; the group-level covariance prior is held fixed. brms is out of
+scope. See the
 [design review](https://github.com/elkronos/bmbeR/blob/main/REVIEW.md#remaining-limitations) for known limitations.
 
 ## References

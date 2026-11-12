@@ -136,7 +136,8 @@ These are deliberate scope limits or open questions, not known bugs:
 
 * **Model class.** Only `rstanarm::stan_glm()` models are supported. Multilevel
   models (`stan_glmer()`) and brms are out of scope; for brms, priorsense
-  provides power-scaling diagnostics.
+  provides power-scaling diagnostics. (Since 2.1.0 the prior tools also
+  accept `stan_glmer()` fits for their population-level priors.)
 * **Local diagnostics are local.** Power-scaling describes the posterior you
   obtained. A posterior stuck in a self-consistent but wrong explanation can
   look like "weak likelihood" rather than "conflict" (the *Choosing priors*

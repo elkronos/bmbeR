@@ -10,7 +10,7 @@
 #'
 #' | Stage | Functions |
 #' |---|---|
-#' | Specify priors | [prior_spec()], [prior_config()], [empirical_bayes_priors()] |
+#' | Specify priors | [prior_spec()], [prior_config()], [empirical_bayes_priors()], [prior_table()] |
 #' | Check priors before fitting | [prior_predictive_check()] |
 #' | Fit and check computation | [fit_model_with_prior()], [check_convergence()] |
 #' | Quantify prior influence | [prior_sensitivity()], [sensitivity_analysis()], [plot_prior_posterior()] |
@@ -19,8 +19,8 @@
 #' | Report | [workflow_report()] |
 #'
 #' @section Global options:
-#' bmbeR never changes global state (options, the random seed, or the ggplot2
-#' theme). To run chains in parallel, set `options(mc.cores = 4)` (or
+#' bmbeR never changes global state (options, R's random number stream, or
+#' the ggplot2 theme). Functions that simulate take a `seed` argument instead. To run chains in parallel, set `options(mc.cores = 4)` (or
 #' `parallel::detectCores()`) yourself before fitting.
 #'
 #' @references
@@ -41,3 +41,6 @@
 #' @importFrom ggplot2 .data
 ## usethis namespace: end
 NULL
+
+# Column added to a copy of the data so that glm() can find the weights.
+utils::globalVariables(".bmb_weights")

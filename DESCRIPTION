@@ -1,6 +1,6 @@
 Package: bmbeR
 Title: Prior-Focused Bayesian Model Building and Evaluation for 'rstanarm'
-Version: 2.0.0
+Version: 2.1.0
 Authors@R: 
     person("elkronos", role = c("aut", "cre"),
            email = "jchase.msu@gmail.com")
@@ -33,12 +33,15 @@ Imports:
     rstan (>= 2.21.0),
     rstanarm (>= 2.21.1),
     stats,
-    utils
+    utils,
+    withr (>= 2.0.0)
 Suggests: 
+    future,
+    future.apply,
     knitr,
+    priorsense,
     rmarkdown,
-    testthat (>= 3.0.0),
-    withr
+    testthat (>= 3.0.0)
 VignetteBuilder: knitr
 Config/testthat/edition: 3
 Config/Needs/website: pkgdown

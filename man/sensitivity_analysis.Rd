@@ -16,6 +16,9 @@ sensitivity_analysis(
   metric = c("elpd_loo", "p_loo", "looic"),
   shift_threshold = 0.5,
   k_threshold = NULL,
+  cv = c("loo", "kfold", "none"),
+  K = 10L,
+  parallel = FALSE,
   keep_fits = TRUE,
   ...
 )
@@ -38,12 +41,13 @@ unnamed list of \code{list(label = , prior_config = )}.}
 
 \item{iter}{Iterations per chain, including warm-up (half by default).}
 
-\item{seed}{Random seed passed to Stan, for reproducibility.}
+\item{seed}{Random seed passed to Stan, for reproducibility (a single
+non-negative whole number).}
 
 \item{reference}{Name or index of the reference configuration.}
 
-\item{metric}{LOO estimate reported per configuration: \code{"elpd_loo"},
-\code{"p_loo"} or \code{"looic"}.}
+\item{metric}{Estimate reported per configuration: \code{"elpd_loo"},
+\code{"p_loo"} or \code{"looic"} (with \code{cv = "kfold"}, the K-fold equivalents).}
 
 \item{shift_threshold}{Posterior-mean shift (in reference SDs) that is
 flagged.}
@@ -51,16 +55,37 @@ flagged.}
 \item{k_threshold}{Passed to \code{\link[loo:loo]{loo::loo()}}: if not \code{NULL}, observations
 with Pareto \eqn{\hat{k}} above it are refitted exactly (slow).}
 
+\item{cv}{Cross-validation method: \code{"loo"} (PSIS-LOO, default),
+\code{"kfold"} (refits each model \code{K} times; slower but does not depend on
+Pareto \eqn{\hat{k}}) or \code{"none"} (compare posteriors only). rstanarm
+supports neither LOO nor K-fold for models fitted with \code{weights}, so
+weighted models need \code{cv = "none"}.}
+
+\item{K}{Number of folds when \code{cv = "kfold"}.}
+
+\item{parallel}{Fit the configurations in parallel with
+\code{\link[future.apply:future_lapply]{future.apply::future_lapply()}}? Choose the backend with
+\code{future::plan()}, e.g. \code{future::plan("multisession", workers = 4)}.
+Each worker runs its chains according to \code{cores} (or
+\code{options(mc.cores)} in the worker), so keep workers x cores within the
+number of CPU cores. Data-masked arguments such as \code{weights = w} must
+refer to columns of \code{data}.}
+
 \item{keep_fits}{Keep the fitted models in the result?}
 
-\item{...}{Further arguments passed to \code{\link[=fit_model_with_prior]{fit_model_with_prior()}}.}
+\item{...}{Further arguments passed to \code{\link[=fit_model_with_prior]{fit_model_with_prior()}}
+(including \code{on_nonconvergence} and \code{convergence_args}) and from there to
+\code{\link[rstanarm:stan_glm]{rstanarm::stan_glm()}}.}
 }
 \value{
 An object of class \code{bmb_sensitivity} with elements \code{summary}
-(posterior summaries by configuration and parameter), \code{comparison} (the
-\code{\link[loo:loo_compare]{loo::loo_compare()}} table), \code{metric} (named vector of the chosen LOO
-estimate), \code{converged} (named logical), \code{loo} (list of loo objects) and,
-if \code{keep_fits = TRUE}, \code{fits}.
+(posterior summaries by configuration and parameter), \code{comparison} (a
+data frame of paired PSIS-LOO differences, as in \code{\link[loo:loo_compare]{loo::loo_compare()}},
+with one row per configuration and the column \code{n_high_k}), \code{metric}
+(named vector of the chosen estimate), \code{converged} (named logical), \code{loo}
+(list of loo or kfold objects), \code{cv}, \code{errors} (named character vector of
+failed configurations) and, if \code{keep_fits = TRUE}, \code{fits}. Use
+\code{as.data.frame()} for the posterior summaries.
 }
 \description{
 Refits the model under each of several prior configurations and compares
@@ -79,6 +104,15 @@ are flagged (a heuristic; choose it for your context).
 LOO compares predictive performance, not prior plausibility: a prior can
 change the estimate of a parameter substantially while barely changing
 predictions, so both parts of the output should be examined.
+
+PSIS-LOO is unreliable when observations have high Pareto \eqn{\hat{k}};
+the number of such observations is reported for each configuration. Use
+\code{k_threshold} to refit those observations, or \code{cv = "kfold"} for K-fold
+cross-validation (Vehtari et al., 2017).
+
+All configurations are validated before any model is fitted. If fitting
+one configuration fails, the error is recorded in \code{errors} and the others
+are still compared; the reference configuration must succeed.
 }
 \examples{
 \donttest{

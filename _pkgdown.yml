@@ -46,6 +46,7 @@ reference:
   - prior_config
   - empirical_bayes_priors
   - build_stanarm_priors
+  - prior_table
 - title: Check priors before fitting
   contents:
   - prior_predictive_check
@@ -63,6 +64,7 @@ reference:
   - sensitivity_analysis
   - plot.bmb_sensitivity
   - plot_prior_posterior
+  - as_priorsense_draws
   - plot_posterior_distributions
 - title: Evaluate and report
   contents:

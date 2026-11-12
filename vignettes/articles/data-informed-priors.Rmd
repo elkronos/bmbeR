@@ -61,6 +61,11 @@ makes the prior's scale automatically appropriate to the units of the data,
 while adding only \(1/n\) of the data's information. It is the prior
 implicitly behind BIC.
 
+A "single observation" is one Bernoulli trial for a binomial response given
+as `cbind(successes, failures)`, so \(n\) is the total number of trials. With
+`weights`, \(n\) is the sum of the weights (frequency weights, or the number
+of trials for proportions); pass the same weights you will use in the model.
+
 ```{r}
 data(kidiq, package = "rstanarm")
 ui <- empirical_bayes_priors(kidiq, kid_score ~ mom_iq + mom_hs)
@@ -155,6 +160,11 @@ prior legitimately because they are *different* data. The power prior
 \(a_0 = 0.5\) counts each historical observation as half an observation.
 bmbeR uses the normal approximation: the prior is centred on the historical
 estimates with variances inflated by \(1/a_0\).
+
+rstanarm places the intercept prior on the intercept at the predictor means
+of the data being fitted. The two studies rarely have the same predictor
+means, so `fit_model_with_prior()` re-expresses the historical intercept
+estimate, and its variance, at the current study's means before fitting.
 
 Here we split `kidiq` into a "historical" and a "current" study:
 

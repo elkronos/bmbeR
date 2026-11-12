@@ -34,7 +34,8 @@ elements, or \code{NULL} for rstanarm's defaults.}
 
 \item{iter}{Iterations per chain, including warm-up (half by default).}
 
-\item{seed}{Random seed passed to Stan, for reproducibility.}
+\item{seed}{Random seed passed to Stan, for reproducibility (a single
+non-negative whole number).}
 
 \item{on_nonconvergence}{What to do if \code{\link[=check_convergence]{check_convergence()}} fails:
 \code{"warn"} (default), \code{"error"} or \code{"ignore"}.}
@@ -71,6 +72,22 @@ instead.
 \strong{Parallel chains.} bmbeR does not choose the number of cores. Set
 \code{options(mc.cores = parallel::detectCores())} or pass \verb{cores = } through
 \code{...}.
+
+\strong{Arguments in \code{...}.} \code{weights}, \code{subset}, \code{offset} and \code{na.action} are
+evaluated inside \code{data}, as in \code{\link[rstanarm:stan_glm]{rstanarm::stan_glm()}}, so
+\code{weights = w} refers to the column \code{w}. The stored model call refers to
+the data by name, so \code{\link[stats:update]{stats::update()}}, \code{\link[loo:loo]{loo::loo()}} and \code{\link[loo:kfold-generic]{loo::kfold()}}
+work on the result.
+
+\strong{Data-informed priors.} The intercept prior from
+\code{\link[=empirical_bayes_priors]{empirical_bayes_priors()}} is placed on the intercept at the predictor
+means. When \code{data} has different predictor means from the data the priors
+were derived from (always the case for power priors), the intercept prior
+is re-expressed at the means of \code{data} before fitting.
+
+\strong{Random numbers.} The \code{seed} is passed to Stan. The default is fixed, so
+repeated calls give identical chains unless you change it. R's own random
+number stream is left unchanged.
 }
 \examples{
 \donttest{

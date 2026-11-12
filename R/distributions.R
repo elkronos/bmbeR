@@ -197,7 +197,7 @@ add_distribution <- function(distributions, name, func) {
   if (!is.list(distributions)) {
     stop("`distributions` must be a named list of generator functions.", call. = FALSE)
   }
-  if (!is.character(name) || length(name) != 1L || !nzchar(name)) {
+  if (!is.character(name) || length(name) != 1L || is.na(name) || !nzchar(name)) {
     stop("`name` must be a single non-empty string.", call. = FALSE)
   }
   if (!is.function(func)) {

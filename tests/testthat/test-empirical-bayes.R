@@ -84,3 +84,50 @@ test_that("invalid inputs give informative errors", {
   expect_error(empirical_bayes_priors(d, y ~ x1 + x5), "not estimable")
   expect_output(print(empirical_bayes_priors(d, y ~ x1)), "unit-information")
 })
+
+test_that("unit-information priors count trials for aggregated binomial data", {
+  set.seed(1)
+  d <- data.frame(x = rnorm(50), trials = 10)
+  d$s <- rbinom(50, 10, plogis(-0.5 + 0.4 * d$x))
+  cfg <- empirical_bayes_priors(d, cbind(s, trials - s) ~ x, family = binomial())
+  g <- glm(cbind(s, trials - s) ~ x, binomial, d)
+  expect_equal(attr(cfg, "n"), 500)
+  expect_equal(cfg$slope$scale, unname(sqrt(vcov(g)[2, 2] * 500)))
+  # Proportions with the number of trials as weights give the same prior.
+  d$prop <- d$s / d$trials
+  cfg_w <- empirical_bayes_priors(d, prop ~ x, family = binomial(), weights = trials)
+  expect_equal(cfg_w$slope$scale, cfg$slope$scale)
+  expect_error(empirical_bayes_priors(d, prop ~ x, family = binomial(), weights = -trials),
+               "non-negative")
+})
+
+test_that("weights are used by the maximum-likelihood fit", {
+  d <- sim_data()
+  w <- rep(c(1, 3), length.out = nrow(d))
+  cfg <- empirical_bayes_priors(d, y ~ x1, weights = w)
+  m <- lm(y ~ x1, d, weights = w)
+  expect_equal(cfg$slope$location, unname(coef(m)[2]))
+  expect_equal(attr(cfg, "n"), sum(w))
+})
+
+test_that("intercept priors are re-expressed at the predictor means of the analysed data", {
+  set.seed(3)
+  hist <- data.frame(x = rnorm(300, 0, 1))
+  hist$y <- 2 + 1.5 * hist$x + rnorm(300)
+  cur <- data.frame(x = rnorm(40, 6, 1))
+  cur$y <- 2 + 1.5 * cur$x + rnorm(40)
+  cfg <- suppressMessages(empirical_bayes_priors(hist, y ~ x, method = "power", a0 = 0.5))
+  m <- lm(y ~ x, hist)
+  moved <- bmbeR:::prepare_prior_config(cfg, y ~ x, cur)
+  cvec <- c(1, mean(cur$x))
+  expect_equal(moved$intercept$location, sum(cvec * coef(m)))
+  expect_equal(moved$intercept$scale, sqrt(drop(t(cvec) %*% vcov(m) %*% cvec) / 0.5))
+  expect_equal(moved$slope, cfg$slope)
+  # Same data: unchanged.
+  expect_identical(bmbeR:::prepare_prior_config(cfg, y ~ x, hist), cfg)
+})
+
+test_that("separation in the maximum-likelihood fit is reported", {
+  d <- data.frame(x = c(1:10, 1:10), y = c(rep(0, 5), rep(1, 5), rep(0, 5), rep(1, 5)))
+  expect_warning(empirical_bayes_priors(d, y ~ x, family = binomial()), "separation")
+})

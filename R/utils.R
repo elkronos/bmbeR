@@ -46,7 +46,14 @@ validate_data_formula <- function(data, formula, data_arg = "data") {
   if (!inherits(formula, "formula")) {
     stop("`formula` must be a formula, e.g. `y ~ x1 + x2`.", call. = FALSE)
   }
-  missing_cols <- setdiff(all.vars(formula), colnames(data))
+  missing_cols <- setdiff(formula_vars(formula, data), colnames(data))
+  # Variables that are not columns may come from the formula's environment
+  # (e.g. `k` in `poly(x, k)`), as model.frame() allows.
+  env <- environment(formula) %||% globalenv()
+  in_env <- vapply(missing_cols, function(v) {
+    exists(v, envir = env) && !is.function(get(v, envir = env))
+  }, logical(1))
+  missing_cols <- missing_cols[!in_env]
   if (length(missing_cols) > 0L) {
     stop(sprintf("`%s` is missing variable(s) used in the formula: %s",
                  data_arg, paste(missing_cols, collapse = ", ")),
@@ -55,17 +62,95 @@ validate_data_formula <- function(data, formula, data_arg = "data") {
   invisible(TRUE)
 }
 
+# Variables used by a formula, with `.` expanded against the data.
+formula_vars <- function(formula, data) {
+  vars <- all.vars(formula)
+  if ("." %in% vars) {
+    vars <- all.vars(stats::terms(formula, data = data))
+  }
+  vars
+}
+
+validate_seed <- function(seed) {
+  if (!is.numeric(seed) || length(seed) != 1L || is.na(seed) || seed < 0 ||
+      seed != round(seed) || seed > .Machine$integer.max) {
+    stop("`seed` must be a single non-negative whole number.", call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+# -----------------------------------------------------------------------------
+# Arguments forwarded to rstanarm::stan_glm()
+# -----------------------------------------------------------------------------
+
+# stan_glm() evaluates these arguments inside the data, as model.frame() does,
+# so they are kept as unevaluated expressions (e.g. `weights = w`).
+nse_args <- c("weights", "subset", "offset", "na.action")
+
+# Capture the arguments in `...` for stan_glm(): data-masked arguments as
+# expressions, everything else as values.
+capture_dots <- function(...) {
+  exprs <- as.list(substitute(list(...)))[-1L]
+  if (length(exprs) == 0L) return(list())
+  nms <- names(exprs) %||% rep("", length(exprs))
+  if (any(!nzchar(nms))) {
+    stop("Arguments passed through `...` to rstanarm::stan_glm() must be named.",
+         call. = FALSE)
+  }
+  out <- vector("list", length(exprs))
+  names(out) <- nms
+  for (i in seq_along(exprs)) {
+    out[i] <- list(if (nms[i] %in% nse_args) exprs[[i]] else ...elt(i))
+  }
+  out
+}
+
+# A language object for a family, so that the stored model call stays small
+# and can be re-evaluated by update(), loo() and kfold().
+family_call <- function(family) {
+  fun <- if (family$family == "neg_binomial_2") {
+    quote(rstanarm::neg_binomial_2)
+  } else {
+    call("::", as.name("stats"), as.name(family$family))
+  }
+  as.call(list(fun, link = family$link))
+}
+
+# The expression used for `data` in the stored model call: the name the user
+# gave when it refers to the same object, otherwise the data itself.
+data_call_arg <- function(data, data_expr, env) {
+  if (is.name(data_expr) && exists(as.character(data_expr), envir = env) &&
+      identical(get(as.character(data_expr), envir = env), data)) {
+    return(data_expr)
+  }
+  data
+}
+
+# Run code that uses R's random number generator without changing the
+# caller's random number stream.
+preserve_seed <- function(expr) withr::with_preserve_seed(expr)
+
 # -----------------------------------------------------------------------------
 # Families and responses
 # -----------------------------------------------------------------------------
 
 # Accept a family object, a family function, or a family name, as glm() does.
-normalize_family <- function(family) {
+# `env` is where a family name is looked up: the environment of the user's
+# call.
+normalize_family <- function(family, env = parent.frame(2)) {
   if (is.character(family)) {
-    fam_fun <- switch(family,
-      neg_binomial_2 = rstanarm::neg_binomial_2,
-      get(family, mode = "function", envir = parent.frame(2))
-    )
+    if (length(family) != 1L || is.na(family)) {
+      stop("`family` must be a single family name, e.g. \"binomial\".", call. = FALSE)
+    }
+    fam_fun <- if (family == "neg_binomial_2") {
+      rstanarm::neg_binomial_2
+    } else {
+      fun <- get0(family, envir = env, mode = "function")
+      if (is.null(fun)) {
+        stop(sprintf("Unknown family '%s'.", family), call. = FALSE)
+      }
+      fun
+    }
     family <- fam_fun
   }
   if (is.function(family)) family <- family()
@@ -92,6 +177,9 @@ get_response <- function(formula, data) {
 
 check_response_family <- function(y, family) {
   fam <- family$family
+  if (is.numeric(y) && any(!is.finite(y))) {
+    stop("The response contains infinite values.", call. = FALSE)
+  }
   if (fam == "gaussian") {
     if (!is.numeric(y) || is.matrix(y)) {
       stop("A gaussian model needs a numeric response.", call. = FALSE)
@@ -149,6 +237,10 @@ is_binary_outcome <- function(y) {
 # Model objects
 # -----------------------------------------------------------------------------
 
+# Model-fitting functions whose priors bmbeR can rebuild: fixed effects,
+# intercept and auxiliary parameter (group-level priors are not rebuilt).
+prior_models <- c("stan_glm", "stan_glmer", "stan_lmer")
+
 check_stanreg <- function(fit, arg = "fit", glm_only = FALSE) {
   if (!inherits(fit, "stanreg")) {
     stop(sprintf("`%s` must be a model fitted with rstanarm (a 'stanreg' object).", arg),
@@ -158,8 +250,8 @@ check_stanreg <- function(fit, arg = "fit", glm_only = FALSE) {
     stop(sprintf("`%s` was fitted with algorithm = '%s'; this function needs MCMC draws (algorithm = 'sampling').",
                  arg, fit$algorithm), call. = FALSE)
   }
-  if (glm_only && !identical(fit$stan_function, "stan_glm")) {
-    stop(sprintf("`%s` must come from rstanarm::stan_glm() (got %s()).",
+  if (glm_only && !fit$stan_function %in% prior_models) {
+    stop(sprintf("`%s` must come from rstanarm::stan_glm() or stan_glmer() (got %s()).",
                  arg, fit$stan_function), call. = FALSE)
   }
   invisible(TRUE)

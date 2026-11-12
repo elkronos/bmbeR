@@ -187,6 +187,9 @@ the reference configuration in reference posterior SDs (shifts of at least
 `shift_threshold = 0.5` are marked `!`). The LOO comparison shows whether the
 priors also change out-of-sample predictive performance; differences smaller
 than about two standard errors are not meaningful (Vehtari et al., 2017).
+The `n_high_k` column counts observations whose Pareto \(\hat{k}\) makes
+PSIS-LOO unreliable; when it is not zero, use `k_threshold = 0.7` or
+`cv = "kfold"` for K-fold cross-validation.
 
 Read both parts. Here the sceptical prior moves the two slopes by
 `r paste(sprintf("%.1f", abs(sc$shift_sd)), collapse = " and ")` posterior
