@@ -190,18 +190,18 @@ result is supplied.
 ## References
 
 Gelman, A., & Hill, J. (2007). *Data Analysis Using Regression and
-Multilevel/Hierarchical Models*. Cambridge University Press.
+Multilevel/Hierarchical Models*. Cambridge University Press. <https://doi.org/10.1017/CBO9780511790942>
 
 Gelman, A., Vehtari, A., Simpson, D., et al. (2020). Bayesian workflow.
-*arXiv:2011.01808*.
+*arXiv:2011.01808*. <https://doi.org/10.48550/arXiv.2011.01808>
 
 Kallioinen, N., Paananen, T., Bürkner, P.-C., & Vehtari, A. (2023). Detecting
 and diagnosing prior and likelihood sensitivity with power-scaling.
-*Statistics and Computing*, 34, 57.
+*Statistics and Computing*, 34, 57. <https://doi.org/10.1007/s11222-023-10366-5>
 
 Kruschke, J. K. (2021). Bayesian analysis reporting guidelines. *Nature Human
-Behaviour*, 5, 1282–1291.
+Behaviour*, 5, 1282–1291. <https://doi.org/10.1038/s41562-021-01177-7>
 
 Vehtari, A., Gelman, A., Simpson, D., Carpenter, B., & Bürkner, P.-C. (2021).
 Rank-normalization, folding, and localization: An improved R-hat for
-assessing convergence of MCMC. *Bayesian Analysis*, 16(2), 667–718.
+assessing convergence of MCMC. *Bayesian Analysis*, 16(2), 667–718. <https://doi.org/10.1214/20-BA1221>

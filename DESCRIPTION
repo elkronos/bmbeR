@@ -8,7 +8,7 @@ Description: A prior-centred Bayesian workflow for regression models fitted
     with 'rstanarm'. Provides validated prior specifications,
     data-informed priors that do not count the data twice (unit-information priors, Kass and Wasserman (1995)
     <doi:10.1080/01621459.1995.10476592>; parametric empirical Bayes
-    shrinkage, Morris (1983) <doi:10.1080/01621459.1983.10477914>; power
+    shrinkage, Morris (1983) <doi:10.1080/01621459.1983.10477920>; power
     priors from historical data, Ibrahim and Chen (2000)
     <doi:10.1214/ss/1009212673>), prior predictive checks, MCMC
     convergence diagnostics (rank-normalised R-hat and bulk/tail effective

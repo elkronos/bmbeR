@@ -44,6 +44,7 @@
 #'
 #' Gelman, A., Vehtari, A., Simpson, D., et al. (2020). Bayesian workflow.
 #' *arXiv:2011.01808*.
+#' \doi{10.48550/arXiv.2011.01808}
 #' @examples
 #' \donttest{
 #' data(kidiq, package = "rstanarm")

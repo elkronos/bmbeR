@@ -128,11 +128,11 @@ when you pass them via `performance =`.
 ## References
 
 Brier, G. W. (1950). Verification of forecasts expressed in terms of
-probability. *Monthly Weather Review*, 78(1), 1–3.
+probability. *Monthly Weather Review*, 78(1), 1–3. <https://doi.org/10.1175/1520-0493(1950)078%3C0001:VOFEIT%3E2.0.CO;2>
 
 Gneiting, T., & Raftery, A. E. (2007). Strictly proper scoring rules,
-prediction, and estimation. *JASA*, 102(477), 359–378.
+prediction, and estimation. *JASA*, 102(477), 359–378. <https://doi.org/10.1198/016214506000001437>
 
 Vehtari, A., Gelman, A., & Gabry, J. (2017). Practical Bayesian model
 evaluation using leave-one-out cross-validation and WAIC. *Statistics and
-Computing*, 27(5), 1413–1432.
+Computing*, 27(5), 1413–1432. <https://doi.org/10.1007/s11222-016-9696-4>

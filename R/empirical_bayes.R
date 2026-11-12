@@ -80,7 +80,7 @@
 #' \doi{10.1080/01621459.1973.10481350}
 #'
 #' Morris, C. N. (1983). Parametric empirical Bayes inference: Theory and
-#' applications. *JASA*, 78(381), 47–55. \doi{10.1080/01621459.1983.10477914}
+#' applications. *JASA*, 78(381), 47–55. \doi{10.1080/01621459.1983.10477920}
 #'
 #' Ibrahim, J. G., & Chen, M.-H. (2000). Power prior distributions for
 #' regression models. *Statistical Science*, 15(1), 46–60.

@@ -50,6 +50,7 @@
 #' Gelman, A., Meng, X.-L., & Stern, H. (1996). Posterior predictive
 #' assessment of model fitness via realized discrepancies. *Statistica
 #' Sinica*, 6(4), 733–760.
+#' \url{https://www3.stat.sinica.edu.tw/statistica/j6n4/j6n41/j6n41.htm}
 #' @examples
 #' \donttest{
 #' data(kidiq, package = "rstanarm")

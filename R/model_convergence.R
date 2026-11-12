@@ -51,6 +51,7 @@
 #'
 #' Betancourt, M. (2017). A conceptual introduction to Hamiltonian Monte
 #' Carlo. *arXiv:1701.02434*.
+#' \doi{10.48550/arXiv.1701.02434}
 #'
 #' @seealso [generate_plot()] for more diagnostic plots.
 #' @examples
