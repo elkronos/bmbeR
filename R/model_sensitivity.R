@@ -72,11 +72,19 @@
 #'
 #' The intercept is analysed at the predictor means, which is the parameter
 #' rstanarm places its prior on. Supported: models from
-#' [rstanarm::stan_glm()] with normal, Student-t, Cauchy, Laplace, flat or
-#' exponential priors, fitted without `QR = TRUE`.
+#' [rstanarm::stan_glm()] and [rstanarm::stan_glmer()] with normal,
+#' Student-t, Cauchy, Laplace, flat or exponential priors, fitted without
+#' `QR = TRUE`.
 #'
-#' @param fit A `stanreg` object from [rstanarm::stan_glm()] or
-#'   [fit_model_with_prior()].
+#' **Multilevel models.** For [rstanarm::stan_glmer()] fits, the priors on
+#' the intercept, the regression coefficients and the auxiliary parameter
+#' are power-scaled and reported. The group-level covariance prior
+#' (`decov`) is not power-scaled, so the result describes sensitivity to the
+#' population-level priors with the group-level prior held fixed (selective
+#' power-scaling; Kallioinen et al., 2023).
+#'
+#' @param fit A `stanreg` object from [rstanarm::stan_glm()],
+#'   [rstanarm::stan_glmer()] or [fit_model_with_prior()].
 #' @param alpha Power-scaling factors for the finite perturbations. Values
 #'   below 1 weaken, above 1 strengthen the prior (or likelihood). The
 #'   default, `c(0.8, 1.25)`, is a symmetric change on the log scale.
@@ -157,7 +165,8 @@ prior_sensitivity <- function(fit, alpha = c(0.8, 1.25), threshold = 0.05,
                                  "diagnosis")]
   flat_scaled <- priors$variable[priors$dist == "flat" & priors$variable %in% scale_priors]
   structure(c(res, list(priors = priors, scale_priors = scale_priors,
-                        flat = flat_scaled)),
+                        flat = flat_scaled,
+                        group_level = !identical(fit$stan_function, "stan_glm"))),
             class = "bmb_prior_sensitivity")
 }
 
@@ -280,6 +289,9 @@ print.bmb_prior_sensitivity <- function(x, digits = 3, ...) {
                 paste(x$flat, collapse = ", ")))
   }
   cat("Intercept diagnostics refer to the intercept at the predictor means.\n")
+  if (isTRUE(x$group_level)) {
+    cat("Group-level (decov) priors are held fixed; only population-level priors are power-scaled.\n")
+  }
   invisible(x)
 }
 
@@ -370,10 +382,19 @@ plot.bmb_prior_sensitivity <- function(x, ...) {
 #'   flagged.
 #' @param k_threshold Passed to [loo::loo()]: if not `NULL`, observations
 #'   with Pareto \eqn{\hat{k}} above it are refitted exactly (slow).
-#' @param cv Cross-validation method: `"loo"` (PSIS-LOO, default) or
+#' @param cv Cross-validation method: `"loo"` (PSIS-LOO, default),
 #'   `"kfold"` (refits each model `K` times; slower but does not depend on
-#'   Pareto \eqn{\hat{k}}).
+#'   Pareto \eqn{\hat{k}}) or `"none"` (compare posteriors only). rstanarm
+#'   supports neither LOO nor K-fold for models fitted with `weights`, so
+#'   weighted models need `cv = "none"`.
 #' @param K Number of folds when `cv = "kfold"`.
+#' @param parallel Fit the configurations in parallel with
+#'   [future.apply::future_lapply()]? Choose the backend with
+#'   `future::plan()`, e.g. `future::plan("multisession", workers = 4)`.
+#'   Each worker runs its chains according to `cores` (or
+#'   `options(mc.cores)` in the worker), so keep workers x cores within the
+#'   number of CPU cores. Data-masked arguments such as `weights = w` must
+#'   refer to columns of `data`.
 #' @param keep_fits Keep the fitted models in the result?
 #' @param ... Further arguments passed to [fit_model_with_prior()]
 #'   (including `on_nonconvergence` and `convergence_args`) and from there to
@@ -412,8 +433,8 @@ sensitivity_analysis <- function(data, formula, prior_configurations,
                                  reference = 1L,
                                  metric = c("elpd_loo", "p_loo", "looic"),
                                  shift_threshold = 0.5, k_threshold = NULL,
-                                 cv = c("loo", "kfold"), K = 10L,
-                                 keep_fits = TRUE, ...) {
+                                 cv = c("loo", "kfold", "none"), K = 10L,
+                                 parallel = FALSE, keep_fits = TRUE, ...) {
   metric <- match.arg(metric)
   cv <- match.arg(cv)
   env <- parent.frame()
@@ -425,12 +446,16 @@ sensitivity_analysis <- function(data, formula, prior_configurations,
   on_nonconvergence <- match.arg(fit_opts$on_nonconvergence %||% "warn",
                                  c("warn", "error", "ignore"))
   convergence_args <- fit_opts$convergence_args %||% list()
-  if (cv == "kfold") {
-    validate_positive_integer(K, "K")
-    if (!is.null(dots$weights)) {
-      stop("rstanarm does not support K-fold cross-validation for models fitted with ",
-           "`weights`; use cv = \"loo\".", call. = FALSE)
-    }
+  if (!is.logical(parallel) || length(parallel) != 1L || is.na(parallel)) {
+    stop("`parallel` must be TRUE or FALSE.", call. = FALSE)
+  }
+  if (parallel && !requireNamespace("future.apply", quietly = TRUE)) {
+    stop("`parallel = TRUE` needs the future.apply package.", call. = FALSE)
+  }
+  if (cv == "kfold") validate_positive_integer(K, "K")
+  if (cv != "none" && !is.null(dots$weights)) {
+    stop("rstanarm supports neither LOO nor K-fold cross-validation for models fitted ",
+         "with `weights`; use cv = \"none\" to compare the posteriors only.", call. = FALSE)
   }
 
   validate_data_formula(data, formula)
@@ -449,28 +474,44 @@ sensitivity_analysis <- function(data, formula, prior_configurations,
     })
   }
 
-  fits <- vector("list", length(configs))
-  names(fits) <- labels
-  loos <- fits
-  errors <- character()
-  converged <- setNames(rep(NA, length(configs)), labels)
-  for (i in seq_along(configs)) {
+  # In parallel workers the user's environment is not available, so the data
+  # are passed by value there and the stored call is pointed back to the
+  # user's data name afterwards.
+  call_data <- data_call_arg(data, data_expr, env)
+  fit_one <- function(i) {
     message(sprintf("Fitting configuration %d/%d: '%s'", i, length(configs), labels[i]))
-    res <- tryCatch({
+    tryCatch({
       fit <- fit_glm_with_priors(data, formula, family, configs[[i]], chains = chains,
                                  iter = iter, seed = seed, dots = dots,
-                                 data_expr = data_expr, env = env,
+                                 data_expr = if (parallel) NULL else data_expr, env = env,
                                  on_nonconvergence = on_nonconvergence,
                                  convergence_args = convergence_args)
-      cv_obj <- if (cv == "kfold") {
+      cv_obj <- if (cv == "none") {
+        NULL
+      } else if (cv == "kfold") {
         preserve_seed(suppressMessages(loo::kfold(fit, K = K)))
       } else if (is.null(k_threshold)) {
         suppressWarnings(loo::loo(fit))
       } else {
         loo::loo(fit, k_threshold = k_threshold)
       }
+      if (parallel && is.name(call_data)) fit$call$data <- call_data
       list(fit = fit, cv = cv_obj)
     }, error = function(e) e)
+  }
+  results <- if (parallel) {
+    future.apply::future_lapply(seq_along(configs), fit_one, future.seed = TRUE)
+  } else {
+    lapply(seq_along(configs), fit_one)
+  }
+
+  fits <- vector("list", length(configs))
+  names(fits) <- labels
+  loos <- fits
+  errors <- character()
+  converged <- setNames(rep(NA, length(configs)), labels)
+  for (i in seq_along(configs)) {
+    res <- results[[i]]
     if (inherits(res, "error")) {
       if (i == ref) {
         stop(sprintf("The reference configuration '%s' failed: %s", labels[i],
@@ -482,7 +523,7 @@ sensitivity_analysis <- function(data, formula, prior_configurations,
       next
     }
     fits[[i]] <- res$fit
-    loos[[i]] <- res$cv
+    loos[i] <- list(res$cv)
     converged[i] <- attr(res$fit, "bmb_convergence")$converged
   }
   ok <- !vapply(fits, is.null, logical(1))
@@ -506,9 +547,11 @@ sensitivity_analysis <- function(data, formula, prior_configurations,
   summ$flag <- !is.na(summ$shift_sd) & abs(summ$shift_sd) >= shift_threshold
   rownames(summ) <- NULL
 
-  est_row <- cv_estimate_name(metric, cv)
-  metric_vals <- vapply(loos, function(l) l$estimates[est_row, "Estimate"], numeric(1))
-  comparison <- if (length(loos) > 1L) compare_loos(loos, cv) else NULL
+  est_row <- if (cv == "none") NA_character_ else cv_estimate_name(metric, cv)
+  metric_vals <- vapply(loos, function(l) {
+    if (is.null(l)) NA_real_ else l$estimates[est_row, "Estimate"]
+  }, numeric(1))
+  comparison <- if (cv != "none" && length(loos) > 1L) compare_loos(loos, cv) else NULL
 
   structure(list(
     summary = summ, comparison = comparison, metric = metric_vals,
@@ -634,6 +677,8 @@ print.bmb_sensitivity <- function(x, digits = 3, ...) {
       cat("  ! Some observations have high Pareto k (n_high_k), so PSIS-LOO is unreliable for\n",
           "   those configurations. Use k_threshold = 0.7 or cv = \"kfold\".\n")
     }
+  } else if (identical(x$cv, "none")) {
+    cat("\nNo predictive comparison (cv = \"none\").\n")
   }
   invisible(x)
 }

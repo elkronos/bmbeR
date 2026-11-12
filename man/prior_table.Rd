@@ -7,8 +7,9 @@
 prior_table(fit)
 }
 \arguments{
-\item{fit}{A \code{stanreg} object from \code{\link[rstanarm:stan_glm]{rstanarm::stan_glm()}} or
-\code{\link[=fit_model_with_prior]{fit_model_with_prior()}}, fitted without \code{QR = TRUE}.}
+\item{fit}{A \code{stanreg} object from \code{\link[rstanarm:stan_glm]{rstanarm::stan_glm()}},
+\code{\link[rstanarm:stan_glmer]{rstanarm::stan_glmer()}} or \code{\link[=fit_model_with_prior]{fit_model_with_prior()}}, fitted without
+\code{QR = TRUE}.}
 }
 \value{
 A data frame with one row per parameter and columns \code{variable},
@@ -18,7 +19,10 @@ does not exist) and \code{prior} (a readable description).
 }
 \description{
 Returns the prior that rstanarm placed on each parameter of a
-\code{\link[rstanarm:stan_glm]{rstanarm::stan_glm()}} fit, after autoscaling. rstanarm's
+\code{\link[rstanarm:stan_glm]{rstanarm::stan_glm()}} fit, after autoscaling. For
+\code{\link[rstanarm:stan_glmer]{rstanarm::stan_glmer()}} fits, the population-level parameters are
+returned; the group-level covariance prior is described by
+\code{rstanarm::prior_summary(fit)$prior_covariance}. rstanarm's
 \code{\link[rstanarm:prior_summary.stanreg]{rstanarm::prior_summary()}} prints the same information; this function
 returns it as a data frame.
 }

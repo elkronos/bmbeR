@@ -64,6 +64,7 @@ reference:
   - sensitivity_analysis
   - plot.bmb_sensitivity
   - plot_prior_posterior
+  - as_priorsense_draws
   - plot_posterior_distributions
 - title: Evaluate and report
   contents:

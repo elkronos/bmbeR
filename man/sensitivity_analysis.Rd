@@ -16,8 +16,9 @@ sensitivity_analysis(
   metric = c("elpd_loo", "p_loo", "looic"),
   shift_threshold = 0.5,
   k_threshold = NULL,
-  cv = c("loo", "kfold"),
+  cv = c("loo", "kfold", "none"),
   K = 10L,
+  parallel = FALSE,
   keep_fits = TRUE,
   ...
 )
@@ -54,11 +55,21 @@ flagged.}
 \item{k_threshold}{Passed to \code{\link[loo:loo]{loo::loo()}}: if not \code{NULL}, observations
 with Pareto \eqn{\hat{k}} above it are refitted exactly (slow).}
 
-\item{cv}{Cross-validation method: \code{"loo"} (PSIS-LOO, default) or
+\item{cv}{Cross-validation method: \code{"loo"} (PSIS-LOO, default),
 \code{"kfold"} (refits each model \code{K} times; slower but does not depend on
-Pareto \eqn{\hat{k}}).}
+Pareto \eqn{\hat{k}}) or \code{"none"} (compare posteriors only). rstanarm
+supports neither LOO nor K-fold for models fitted with \code{weights}, so
+weighted models need \code{cv = "none"}.}
 
 \item{K}{Number of folds when \code{cv = "kfold"}.}
+
+\item{parallel}{Fit the configurations in parallel with
+\code{\link[future.apply:future_lapply]{future.apply::future_lapply()}}? Choose the backend with
+\code{future::plan()}, e.g. \code{future::plan("multisession", workers = 4)}.
+Each worker runs its chains according to \code{cores} (or
+\code{options(mc.cores)} in the worker), so keep workers x cores within the
+number of CPU cores. Data-masked arguments such as \code{weights = w} must
+refer to columns of \code{data}.}
 
 \item{keep_fits}{Keep the fitted models in the result?}
 

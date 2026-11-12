@@ -36,7 +36,9 @@ Imports:
     utils,
     withr (>= 2.0.0)
 Suggests: 
+    future.apply,
     knitr,
+    priorsense,
     rmarkdown,
     testthat (>= 3.0.0)
 VignetteBuilder: knitr

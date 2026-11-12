@@ -26,7 +26,8 @@
 #' Use `format(report, type = "markdown")` (or knit the object in R Markdown
 #' or Quarto) for a Markdown version of the checklist.
 #'
-#' @param fit A `stanreg` object from [rstanarm::stan_glm()] or
+#' @param fit A `stanreg` object from [rstanarm::stan_glm()],
+#'   [rstanarm::stan_glmer()] or
 #'   [fit_model_with_prior()].
 #' @param prior_check Optional result of [prior_predictive_check()].
 #' @param sensitivity Optional result of [prior_sensitivity()] or
@@ -97,6 +98,12 @@ workflow_report <- function(fit, prior_check = NULL, sensitivity = NULL,
     }
     if (identical(attr(cfg, "method"), "power")) {
       detail <- paste(detail, "(power prior: make sure the historical data differ from the analysed data)")
+    }
+    if (!is.null(ps$prior_covariance)) {
+      pc <- ps$prior_covariance
+      detail <- paste0(detail, sprintf("; group-level covariance ~ %s(regularization = %s, concentration = %s, shape = %s, scale = %s)",
+                                       pc$dist, format(pc$regularization), format(pc$concentration),
+                                       format(pc$shape), format(pc$scale)))
     }
     add("Priors", status, detail)
   }

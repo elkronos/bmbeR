@@ -237,6 +237,10 @@ is_binary_outcome <- function(y) {
 # Model objects
 # -----------------------------------------------------------------------------
 
+# Model-fitting functions whose priors bmbeR can rebuild: fixed effects,
+# intercept and auxiliary parameter (group-level priors are not rebuilt).
+prior_models <- c("stan_glm", "stan_glmer", "stan_lmer")
+
 check_stanreg <- function(fit, arg = "fit", glm_only = FALSE) {
   if (!inherits(fit, "stanreg")) {
     stop(sprintf("`%s` must be a model fitted with rstanarm (a 'stanreg' object).", arg),
@@ -246,8 +250,8 @@ check_stanreg <- function(fit, arg = "fit", glm_only = FALSE) {
     stop(sprintf("`%s` was fitted with algorithm = '%s'; this function needs MCMC draws (algorithm = 'sampling').",
                  arg, fit$algorithm), call. = FALSE)
   }
-  if (glm_only && !identical(fit$stan_function, "stan_glm")) {
-    stop(sprintf("`%s` must come from rstanarm::stan_glm() (got %s()).",
+  if (glm_only && !fit$stan_function %in% prior_models) {
+    stop(sprintf("`%s` must come from rstanarm::stan_glm() or stan_glmer() (got %s()).",
                  arg, fit$stan_function), call. = FALSE)
   }
   invisible(TRUE)

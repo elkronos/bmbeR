@@ -14,8 +14,8 @@ prior_sensitivity(
 )
 }
 \arguments{
-\item{fit}{A \code{stanreg} object from \code{\link[rstanarm:stan_glm]{rstanarm::stan_glm()}} or
-\code{\link[=fit_model_with_prior]{fit_model_with_prior()}}.}
+\item{fit}{A \code{stanreg} object from \code{\link[rstanarm:stan_glm]{rstanarm::stan_glm()}},
+\code{\link[rstanarm:stan_glmer]{rstanarm::stan_glmer()}} or \code{\link[=fit_model_with_prior]{fit_model_with_prior()}}.}
 
 \item{alpha}{Power-scaling factors for the finite perturbations. Values
 below 1 weaken, above 1 strengthen the prior (or likelihood). The
@@ -107,8 +107,16 @@ Student-t with \code{df <= 2}).
 
 The intercept is analysed at the predictor means, which is the parameter
 rstanarm places its prior on. Supported: models from
-\code{\link[rstanarm:stan_glm]{rstanarm::stan_glm()}} with normal, Student-t, Cauchy, Laplace, flat or
-exponential priors, fitted without \code{QR = TRUE}.
+\code{\link[rstanarm:stan_glm]{rstanarm::stan_glm()}} and \code{\link[rstanarm:stan_glmer]{rstanarm::stan_glmer()}} with normal,
+Student-t, Cauchy, Laplace, flat or exponential priors, fitted without
+\code{QR = TRUE}.
+
+\strong{Multilevel models.} For \code{\link[rstanarm:stan_glmer]{rstanarm::stan_glmer()}} fits, the priors on
+the intercept, the regression coefficients and the auxiliary parameter
+are power-scaled and reported. The group-level covariance prior
+(\code{decov}) is not power-scaled, so the result describes sensitivity to the
+population-level priors with the group-level prior held fixed (selective
+power-scaling; Kallioinen et al., 2023).
 }
 \examples{
 \donttest{

@@ -99,7 +99,8 @@ plot_posterior_distributions <- function(model_fit, prob = 0.95, prob_inner = 0.
 #' The intercept is shown at the predictor means, which is the parameter
 #' rstanarm places its prior on.
 #'
-#' @param fit A `stanreg` object from [rstanarm::stan_glm()].
+#' @param fit A `stanreg` object from [rstanarm::stan_glm()] or
+#'   [rstanarm::stan_glmer()] (population-level parameters only).
 #' @param pars Parameters to show (default: all).
 #' @param n_grid Number of grid points for the prior density.
 #' @return A ggplot object.

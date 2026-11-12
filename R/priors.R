@@ -337,7 +337,10 @@ resolve_priors <- function(fit) {
 #' Priors used by a fitted model
 #'
 #' Returns the prior that rstanarm placed on each parameter of a
-#' [rstanarm::stan_glm()] fit, after autoscaling. rstanarm's
+#' [rstanarm::stan_glm()] fit, after autoscaling. For
+#' [rstanarm::stan_glmer()] fits, the population-level parameters are
+#' returned; the group-level covariance prior is described by
+#' `rstanarm::prior_summary(fit)$prior_covariance`. rstanarm's
 #' [rstanarm::prior_summary()] prints the same information; this function
 #' returns it as a data frame.
 #'
@@ -346,8 +349,9 @@ resolve_priors <- function(fit) {
 #' parameters (e.g. `sigma`) have half-distributions on the positive real
 #' line, except for the exponential.
 #'
-#' @param fit A `stanreg` object from [rstanarm::stan_glm()] or
-#'   [fit_model_with_prior()], fitted without `QR = TRUE`.
+#' @param fit A `stanreg` object from [rstanarm::stan_glm()],
+#'   [rstanarm::stan_glmer()] or [fit_model_with_prior()], fitted without
+#'   `QR = TRUE`.
 #' @return A data frame with one row per parameter and columns `variable`,
 #'   `role` (`"intercept"`, `"slope"` or `"aux"`), `dist`, `location`,
 #'   `scale`, `df`, `prior_sd` (the prior standard deviation, `Inf` when it
@@ -369,8 +373,8 @@ prior_table <- function(fit) {
 
 # Draws of the parameters on which the priors are placed: identical to
 # as.matrix(fit) except the intercept is evaluated at the predictor means.
-prior_scale_draws <- function(fit, priors = resolve_priors(fit)) {
-  draws <- as.matrix(fit)
+prior_scale_draws <- function(fit, priors = resolve_priors(fit),
+                              draws = as.matrix(fit), keep_all = FALSE) {
   X <- rstanarm::get_x(fit)
   if ("(Intercept)" %in% colnames(X) && ncol(X) > 1L) {
     slopes <- setdiff(colnames(X), "(Intercept)")
@@ -378,7 +382,7 @@ prior_scale_draws <- function(fit, priors = resolve_priors(fit)) {
     draws[, "(Intercept)"] <- draws[, "(Intercept)"] +
       drop(draws[, slopes, drop = FALSE] %*% xbar)
   }
-  draws[, priors$variable, drop = FALSE]
+  if (keep_all) draws else draws[, priors$variable, drop = FALSE]
 }
 
 # Log density of each prior evaluated at each draw (draws x parameters).

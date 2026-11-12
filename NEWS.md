@@ -55,7 +55,13 @@ Fixes from a second review of 2.0.0, each with a regression test.
 
 * `prior_table()` returns the priors a fit used, after autoscaling.
 * `sensitivity_analysis(cv = "kfold")` compares configurations by K-fold
-  cross-validation.
+  cross-validation, and `parallel = TRUE` fits them in parallel with
+  future.apply.
+* `prior_table()`, `prior_sensitivity()`, `plot_prior_posterior()` and
+  `workflow_report()` accept `stan_glmer()` fits. The population-level priors
+  are analysed; the group-level covariance prior is held fixed.
+* `as_priorsense_draws()` exports a fit, with its log prior and
+  log-likelihood, for the priorsense package.
 * `as.data.frame()` methods for convergence, sensitivity and prior check
   results.
 * `format(report, type = "markdown")`, and knitting a report in R Markdown or
@@ -65,7 +71,7 @@ Fixes from a second review of 2.0.0, each with a regression test.
 
 ## Internal
 
-* withr moved from Suggests to Imports.
+* withr moved from Suggests to Imports; future.apply added to Suggests.
 * GitHub Actions are pinned to commit SHAs and kept current by Dependabot; a
   test-coverage workflow was added.
 

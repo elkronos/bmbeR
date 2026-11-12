@@ -17,7 +17,8 @@ workflow_report(
 \method{format}{bmb_report}(x, type = c("text", "markdown"), digits = 3, ...)
 }
 \arguments{
-\item{fit}{A \code{stanreg} object from \code{\link[rstanarm:stan_glm]{rstanarm::stan_glm()}} or
+\item{fit}{A \code{stanreg} object from \code{\link[rstanarm:stan_glm]{rstanarm::stan_glm()}},
+\code{\link[rstanarm:stan_glmer]{rstanarm::stan_glmer()}} or
 \code{\link[=fit_model_with_prior]{fit_model_with_prior()}}.}
 
 \item{prior_check}{Optional result of \code{\link[=prior_predictive_check]{prior_predictive_check()}}.}
