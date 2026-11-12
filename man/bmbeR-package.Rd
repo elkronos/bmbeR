@@ -13,7 +13,7 @@ prior.
 
 The functions map onto the stages of the workflow:\tabular{ll}{
    Stage \tab Functions \cr
-   Specify priors \tab \code{\link[=prior_spec]{prior_spec()}}, \code{\link[=prior_config]{prior_config()}}, \code{\link[=empirical_bayes_priors]{empirical_bayes_priors()}} \cr
+   Specify priors \tab \code{\link[=prior_spec]{prior_spec()}}, \code{\link[=prior_config]{prior_config()}}, \code{\link[=empirical_bayes_priors]{empirical_bayes_priors()}}, \code{\link[=prior_table]{prior_table()}} \cr
    Check priors before fitting \tab \code{\link[=prior_predictive_check]{prior_predictive_check()}} \cr
    Fit and check computation \tab \code{\link[=fit_model_with_prior]{fit_model_with_prior()}}, \code{\link[=check_convergence]{check_convergence()}} \cr
    Quantify prior influence \tab \code{\link[=prior_sensitivity]{prior_sensitivity()}}, \code{\link[=sensitivity_analysis]{sensitivity_analysis()}}, \code{\link[=plot_prior_posterior]{plot_prior_posterior()}} \cr
@@ -24,8 +24,8 @@ The functions map onto the stages of the workflow:\tabular{ll}{
 }
 \section{Global options}{
 
-bmbeR never changes global state (options, the random seed, or the ggplot2
-theme). To run chains in parallel, set \code{options(mc.cores = 4)} (or
+bmbeR never changes global state (options, R's random number stream, or
+the ggplot2 theme). Functions that simulate take a \code{seed} argument instead. To run chains in parallel, set \code{options(mc.cores = 4)} (or
 \code{parallel::detectCores()}) yourself before fitting.
 }
 

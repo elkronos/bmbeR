@@ -52,3 +52,28 @@ test_that("plot methods return ggplots", {
   expect_s3_class(plot(res), "ggplot")
   expect_s3_class(plot(res, type = "trace"), "ggplot")
 })
+
+test_that("constant parameters are not treated as non-converged", {
+  arr <- make_chains()
+  arr[, , "b"] <- 1
+  res <- bmbeR:::convergence_from_draws(arr, ok_sampler)
+  expect_true(res$converged)
+  expect_true(res$parameters$constant[res$parameters$variable == "b"])
+  expect_match(res$notes, "Constant draws", all = FALSE)
+  expect_output(print(res), "PASSED")
+})
+
+test_that("the R-hat message reports the failing parameters' R-hat", {
+  arr <- make_chains(shift = 3)
+  res <- bmbeR:::convergence_from_draws(arr, ok_sampler)
+  expect_match(res$issues, sprintf("max %.3f", res$parameters$rhat[2]), all = FALSE, fixed = TRUE)
+})
+
+test_that("convergence thresholds are validated", {
+  arr <- make_chains()
+  expect_error(bmbeR:::convergence_from_draws(arr, ok_sampler, max_divergent = 0.5), "whole number")
+  expect_error(bmbeR:::convergence_from_draws(arr, ok_sampler, max_divergent = -1), "whole number")
+  expect_error(bmbeR:::convergence_from_draws(arr, ok_sampler, min_bfmi = NA), "finite")
+  expect_error(bmbeR:::convergence_from_draws(arr, ok_sampler, rhat_threshold = 0.9), "at least 1")
+  expect_s3_class(as.data.frame(bmbeR:::convergence_from_draws(arr, ok_sampler)), "data.frame")
+})

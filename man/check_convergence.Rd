@@ -25,9 +25,11 @@ by MCMC.}
 \item{min_ess}{Minimum acceptable bulk- and tail-ESS. Defaults to
 \verb{100 * number of chains}.}
 
-\item{max_divergent}{Maximum acceptable number of divergent transitions.}
+\item{max_divergent}{Maximum acceptable number of divergent transitions
+(a non-negative whole number).}
 
-\item{min_bfmi}{Minimum acceptable E-BFMI per chain.}
+\item{min_bfmi}{Minimum acceptable E-BFMI per chain (a non-negative
+number).}
 
 \item{pars}{Optional character vector of parameters to check. By default
 all model parameters are checked.}
@@ -42,7 +44,8 @@ bmbeR 1.x, is converted to an absolute \code{min_ess} with a warning.}
 \value{
 An object of class \code{bmb_convergence}: a list with elements
 \code{converged} (logical), \code{parameters} (a data frame with R-hat, bulk-ESS
-and tail-ESS per parameter), \code{sampler} (divergences, tree-depth hits,
+and tail-ESS per parameter; also available with \code{as.data.frame()}),
+\code{sampler} (divergences, tree-depth hits,
 E-BFMI), \code{issues} (character vector of problems), \code{thresholds}, and the
 draws needed by the \code{plot()} method. Use \code{isTRUE(x$converged)} in code.
 }
@@ -64,6 +67,10 @@ the energy distribution.
 \item Iterations that \strong{saturate the maximum tree depth} are reported as an
 efficiency warning; they do not by themselves invalidate the draws.
 }
+
+Parameters whose draws are all identical (for example constant generated
+quantities in a \code{stanfit}) have no defined R-hat or ESS; they are excluded
+from the checks and listed in the notes.
 }
 \examples{
 \donttest{

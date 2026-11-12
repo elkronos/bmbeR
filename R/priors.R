@@ -71,6 +71,11 @@ prior_spec <- function(type = c("normal", "student_t", "cauchy", "laplace",
     spec$scale <- unname(scale)
     if (type == "student_t") {
       validate_numeric(df, "df", positive = TRUE, allow_vector = TRUE)
+      k <- max(length(location), length(scale))
+      if (length(df) > 1L && k > 1L && length(df) != k) {
+        stop("`df` must have length 1 or the same length as `location` and `scale`.",
+             call. = FALSE)
+      }
       spec$df <- unname(df)
     }
   } else if (type == "exponential") {
@@ -156,11 +161,13 @@ as_prior_spec <- function(x, role = c("intercept", "slope", "aux")) {
                    x$dist, role, paste(allowed_types[[role]], collapse = ", ")),
            call. = FALSE)
     }
+    # rstanarm leaves `scale` (and `location`, `df`) NULL when the user keeps
+    # the function's defaults; these are the values rstanarm then uses.
     spec <- if (dist == "exponential") {
-      prior_spec("exponential", rate = 1 / x$scale, autoscale = isTRUE(x$autoscale))
+      prior_spec("exponential", rate = 1 / (x$scale %||% 1), autoscale = isTRUE(x$autoscale))
     } else {
-      prior_spec(dist, location = x$location, scale = x$scale,
-                 df = if (dist == "student_t") x$df else 3,
+      prior_spec(dist, location = x$location %||% 0, scale = x$scale %||% 2.5,
+                 df = if (dist == "student_t") x$df %||% 1 else 3,
                  autoscale = isTRUE(x$autoscale))
     }
   } else if (is.list(x) && !is.null(x$type)) {
@@ -176,8 +183,9 @@ as_prior_spec <- function(x, role = c("intercept", "slope", "aux")) {
     if (is.null(scale) && type %in% c("normal", "student_t", "cauchy", "laplace")) {
       stop(sprintf("The %s prior needs a scale (`scale` or `sigma`).", role), call. = FALSE)
     }
+    rate <- x$rate %||% (if (type == "exponential" && !is.null(scale)) 1 / scale) %||% 1
     spec <- prior_spec(type, location = location, scale = scale %||% 1,
-                       df = x$df %||% x$nu %||% 3, rate = x$rate %||% 1,
+                       df = x$df %||% x$nu %||% 3, rate = rate,
                        autoscale = isTRUE(x$autoscale))
   } else {
     stop(sprintf("Could not interpret the %s prior. Use prior_spec().", role),
@@ -324,6 +332,39 @@ resolve_priors <- function(fit) {
   }
   rownames(out) <- NULL
   out
+}
+
+#' Priors used by a fitted model
+#'
+#' Returns the prior that rstanarm placed on each parameter of a
+#' [rstanarm::stan_glm()] fit, after autoscaling. rstanarm's
+#' [rstanarm::prior_summary()] prints the same information; this function
+#' returns it as a data frame.
+#'
+#' The intercept row describes the prior on the intercept at the predictor
+#' means, which is the parameter rstanarm places its prior on. Auxiliary
+#' parameters (e.g. `sigma`) have half-distributions on the positive real
+#' line, except for the exponential.
+#'
+#' @param fit A `stanreg` object from [rstanarm::stan_glm()] or
+#'   [fit_model_with_prior()], fitted without `QR = TRUE`.
+#' @return A data frame with one row per parameter and columns `variable`,
+#'   `role` (`"intercept"`, `"slope"` or `"aux"`), `dist`, `location`,
+#'   `scale`, `df`, `prior_sd` (the prior standard deviation, `Inf` when it
+#'   does not exist) and `prior` (a readable description).
+#' @examples
+#' \donttest{
+#' data(kidiq, package = "rstanarm")
+#' fit <- rstanarm::stan_glm(kid_score ~ mom_iq, data = kidiq,
+#'                           chains = 2, iter = 1000, refresh = 0)
+#' prior_table(fit)
+#' }
+#' @export
+prior_table <- function(fit) {
+  priors <- resolve_priors(fit)
+  priors$prior_sd <- prior_sd(priors)
+  priors$prior <- describe_prior_rows(priors)
+  priors
 }
 
 # Draws of the parameters on which the priors are placed: identical to

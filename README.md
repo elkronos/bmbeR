@@ -70,15 +70,15 @@ workflow_report(fit, prior_check = pc, performance = perf)
 
 | Workflow stage | Functions | Methods |
 |---|---|---|
-| Specify priors | `prior_spec()`, `prior_config()` | Validated specs; rstanarm and 1.x formats accepted |
+| Specify priors | `prior_spec()`, `prior_config()`, `prior_table()` | Validated specs; rstanarm and 1.x formats accepted; the priors a fit used after autoscaling |
 | Data-informed priors | `empirical_bayes_priors()` | Unit-information (Kass & Wasserman, 1995); empirical Bayes shrinkage (Morris, 1983); power priors (Ibrahim & Chen, 2000) |
 | Check priors | `prior_predictive_check()` | Prior predictive simulation (Gabry et al., 2019) with plausibility summaries |
 | Fit | `fit_model_with_prior()` | `rstanarm::stan_glm()` with automatic diagnostics |
 | Verify computation | `check_convergence()`, `generate_plot()` | Rank-normalised R-hat, bulk/tail-ESS (Vehtari et al., 2021); divergences, E-BFMI (Betancourt, 2017); rank plots |
 | Prior influence | `prior_sensitivity()`, `plot_prior_posterior()` | Power-scaling (Kallioinen et al., 2023), covariance-based local sensitivity (Giordano et al., 2018), PSIS (Vehtari et al., 2024), posterior contraction, prior-data conflict z (Box, 1980) |
-| Alternative priors | `sensitivity_analysis()` | Refits with posterior shifts and PSIS-LOO comparison (Vehtari et al., 2017) |
+| Alternative priors | `sensitivity_analysis()` | Refits with posterior shifts and PSIS-LOO or K-fold comparison (Vehtari et al., 2017) |
 | Evaluate | `evaluate_model_performance()`, `compare_performance()` | Held-out ELPD, CRPS, Brier score (Gneiting & Raftery, 2007), coverage, AUC |
-| Report | `workflow_report()` | Checklist following BARG (Kruschke, 2021) |
+| Report | `workflow_report()` | Checklist following BARG (Kruschke, 2021); prints as text or Markdown |
 
 ## Why bmbeR?
 
@@ -99,7 +99,9 @@ compute the diagnostics. bmbeR adds what is missing for rstanarm users:
   data.
 * **Honest predictive evaluation.** Proper scoring rules on held-out data,
   with paired model comparison.
-* **One object per stage, one report at the end.**
+* **One object per stage, one report at the end.** Every result has an
+  `as.data.frame()` method, and `format(report, type = "markdown")` drops the
+  checklist into R Markdown or Quarto.
 
 ## Learn more
 

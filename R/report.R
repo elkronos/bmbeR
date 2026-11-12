@@ -11,6 +11,21 @@
 #' [prior_predictive_check()] and [evaluate_model_performance()], to
 #' complete the checklist.
 #'
+#' Posterior predictive p-values use the mean, SD, minimum and maximum of the
+#' outcome. For binary outcomes the mean is reproduced by any model with an
+#' intercept, so a binned calibration statistic is used as well: observations
+#' are grouped by their fitted probability and the squared standardised
+#' differences between observed and expected successes are summed (a posterior
+#' predictive version of the Hosmer-Lemeshow statistic; only large values
+#' indicate misfit).
+#'
+#' Held-out performance is marked `check` when the coverage of the predictive
+#' intervals differs from `prob` of [evaluate_model_performance()] by more
+#' than two binomial standard errors.
+#'
+#' Use `format(report, type = "markdown")` (or knit the object in R Markdown
+#' or Quarto) for a Markdown version of the checklist.
+#'
 #' @param fit A `stanreg` object from [rstanarm::stan_glm()] or
 #'   [fit_model_with_prior()].
 #' @param prior_check Optional result of [prior_predictive_check()].
@@ -19,6 +34,8 @@
 #' @param performance Optional result of [evaluate_model_performance()] on
 #'   held-out data.
 #' @param prob Probability mass of the reported credible intervals.
+#' @param seed Seed for the posterior predictive simulations. R's random
+#'   number stream is left unchanged.
 #'
 #' @return An object of class `bmb_report` with elements `items` (a data
 #'   frame with one row per checklist item: `item`, `status`, `detail`),
@@ -40,9 +57,10 @@
 #' }
 #' @export
 workflow_report <- function(fit, prior_check = NULL, sensitivity = NULL,
-                            performance = NULL, prob = 0.95) {
+                            performance = NULL, prob = 0.95, seed = 1234) {
   check_stanreg(fit, glm_only = TRUE)
   validate_probability(prob, "prob", open = TRUE)
+  validate_seed(seed)
   items <- list()
   add <- function(item, status, detail) {
     items[[length(items) + 1L]] <<- data.frame(item = item, status = status,
@@ -57,18 +75,18 @@ workflow_report <- function(fit, prior_check = NULL, sensitivity = NULL,
                              fam$family, fam$link, nrow(X), ncol(X)))
 
   # 2. Priors --------------------------------------------------------------
-  priors <- tryCatch(resolve_priors(fit), error = function(e) NULL)
+  priors_error <- NULL
+  priors <- tryCatch(resolve_priors(fit), error = function(e) {
+    priors_error <<- conditionMessage(e)
+    NULL
+  })
   cfg <- attr(fit, "bmb_prior_config")
   ps <- rstanarm::prior_summary(fit)
   if (is.null(priors)) {
-    add("Priors", "check", "Priors could not be summarised (unsupported prior type or QR = TRUE).")
+    add("Priors", "check", paste("Priors could not be summarised:", priors_error))
   } else {
     flat <- priors$variable[priors$dist == "flat"]
-    src <- if (!is.null(attr(cfg, "method"))) {
-      sprintf("data-informed (%s)", attr(cfg, "method"))
-    } else if (is_default_priors(ps)) {
-      "rstanarm defaults (weakly informative, autoscaled)"
-    } else "user-specified"
+    src <- prior_source(cfg, ps, X)
     detail <- sprintf("%s: %s", src, paste(sprintf("%s ~ %s", priors$variable,
                                                    describe_prior_rows(priors)), collapse = "; "))
     status <- "ok"
@@ -97,9 +115,16 @@ workflow_report <- function(fit, prior_check = NULL, sensitivity = NULL,
       problems <- c(problems, sprintf("%.0f%% of prior success probabilities are below 5%% or above 95%%",
                                       100 * s$share_extreme))
     }
-    q <- signif(s$yrep_quantiles[c(2, 4)], 3)
-    detail <- sprintf("90%% of prior predictive values in [%s, %s]; observed range [%s, %s]",
-                      q[1], q[2], signif(s$observed_range[1], 3), signif(s$observed_range[2], 3))
+    detail <- if (isTRUE(prior_check$binary)) {
+      pq <- signif(s$proportion_quantiles[c(1, 3)], 3)
+      sprintf(paste0("90%% of simulated success proportions in [%s, %s]; %.0f%% of prior ",
+                     "success probabilities below 5%% or above 95%%"),
+              pq[1], pq[2], 100 * s$share_extreme)
+    } else {
+      q <- signif(s$yrep_quantiles[c(2, 4)], 3)
+      sprintf("90%% of prior predictive values in [%s, %s]; observed range [%s, %s]",
+              q[1], q[2], signif(s$observed_range[1], 3), signif(s$observed_range[2], 3))
+    }
     if (length(problems) > 0L) detail <- paste0(detail, ". ", paste(problems, collapse = "; "))
     add("Prior predictive check", if (length(problems) > 0L) "check" else "ok", detail)
   }
@@ -108,13 +133,13 @@ workflow_report <- function(fit, prior_check = NULL, sensitivity = NULL,
   conv <- attr(fit, "bmb_convergence") %||% check_convergence(fit)
   sf <- fit$stanfit
   add("MCMC computation", if (conv$converged) "ok" else "check",
-      sprintf("%d chains x %d iterations (%d warm-up), seed %s. Max R-hat %.3f, min bulk-ESS %.0f, min tail-ESS %.0f, %d divergences.%s",
+      sprintf("%d chains x %d iterations (%d warm-up), seed %s. Max R-hat %s, min bulk-ESS %s, min tail-ESS %s, %s divergences.%s",
               conv$n_chains, sf@sim$iter, sf@sim$warmup,
               format(sf@stan_args[[1]]$seed %||% NA),
-              max(conv$parameters$rhat, na.rm = TRUE),
-              min(conv$parameters$ess_bulk, na.rm = TRUE),
-              min(conv$parameters$ess_tail, na.rm = TRUE),
-              conv$sampler$divergent %||% NA_integer_,
+              safe_extreme(conv$parameters$rhat, max, "%.3f"),
+              safe_extreme(conv$parameters$ess_bulk, min, "%.0f"),
+              safe_extreme(conv$parameters$ess_tail, min, "%.0f"),
+              format(conv$sampler$divergent %||% NA_integer_),
               if (conv$converged) "" else paste0(" Issues: ", paste(conv$issues, collapse = " "))))
 
   # 5. Posterior summary -----------------------------------------------------
@@ -137,8 +162,8 @@ workflow_report <- function(fit, prior_check = NULL, sensitivity = NULL,
               100 * prob, nrow(post)))
 
   # 6. Posterior predictive check -------------------------------------------
-  ppc <- ppc_pvalues(fit)
-  extreme <- ppc$statistic[ppc$p_value < 0.025 | ppc$p_value > 0.975]
+  ppc <- ppc_pvalues(fit, seed = seed)
+  extreme <- ppc$statistic[ppc$p_value < 0.025 | (!ppc$one_sided & ppc$p_value > 0.975)]
   add("Posterior predictive check",
       if (length(extreme) > 0L) "check" else "ok",
       sprintf("Posterior predictive p-values: %s%s",
@@ -159,11 +184,21 @@ workflow_report <- function(fit, prior_check = NULL, sensitivity = NULL,
               if (nbad > 0L) " (use loo(fit, k_threshold = 0.7) or K-fold CV)" else ""))
 
   # 8. Sensitivity -----------------------------------------------------------
+  sens_error <- priors_error
   if (is.null(sensitivity) && !is.null(priors)) {
-    sensitivity <- tryCatch(prior_sensitivity(fit), error = function(e) NULL)
+    sensitivity <- tryCatch(prior_sensitivity(fit), error = function(e) {
+      sens_error <<- conditionMessage(e)
+      NULL
+    })
   }
   if (is.null(sensitivity)) {
-    add("Prior sensitivity", "missing", "Not available: run prior_sensitivity() or sensitivity_analysis().")
+    msg <- if (is.null(sens_error)) {
+      "Not available: run prior_sensitivity() or sensitivity_analysis()."
+    } else {
+      paste0("Power-scaling is not available for this model (", sens_error,
+             "). Use sensitivity_analysis() to refit under alternative priors.")
+    }
+    add("Prior sensitivity", "missing", msg)
   } else if (inherits(sensitivity, "bmb_prior_sensitivity")) {
     d <- sensitivity$summary
     serious <- d$variable[d$diagnosis %in% c("prior-data conflict", "weak likelihood")]
@@ -191,8 +226,19 @@ workflow_report <- function(fit, prior_check = NULL, sensitivity = NULL,
   } else {
     vals <- unlist(unclass(performance))
     keep <- intersect(c("ELPD", "RMSE", "CRPS", "Coverage", "Accuracy", "Brier", "AUC"), names(vals))
-    add("Held-out predictive performance", "ok",
-        paste(sprintf("%s = %s", keep, signif(vals[keep], 3)), collapse = ", "))
+    detail <- paste(sprintf("%s = %s", keep, signif(vals[keep], 3)), collapse = ", ")
+    status <- "ok"
+    if ("Coverage" %in% names(vals) && !is.na(vals[["Coverage"]])) {
+      target <- attr(performance, "prob")
+      se <- sqrt(target * (1 - target) / attr(performance, "n"))
+      if (abs(vals[["Coverage"]] - target) > 2 * se) {
+        status <- "check"
+        detail <- paste0(detail, sprintf(". Coverage differs from the nominal %g%% by more than two standard errors: the predictive intervals are %s.",
+                                         100 * target,
+                                         if (vals[["Coverage"]] < target) "too narrow" else "too wide"))
+      }
+    }
+    add("Held-out predictive performance", status, detail)
   }
 
   # 10. Reproducibility ---------------------------------------------------
@@ -206,11 +252,32 @@ workflow_report <- function(fit, prior_check = NULL, sensitivity = NULL,
             class = "bmb_report")
 }
 
-is_default_priors <- function(ps) {
-  isTRUE(ps$prior$dist == "normal") && all(ps$prior$scale == 2.5) &&
-    !is.null(ps$prior$adjusted_scale) &&
-    (is.null(ps$prior_intercept) ||
-       (isTRUE(ps$prior_intercept$dist == "normal") && ps$prior_intercept$scale == 2.5))
+# Where the priors came from: the bmbeR configuration when the model was
+# fitted with fit_model_with_prior(), otherwise inferred from prior_summary().
+prior_source <- function(cfg, ps, X) {
+  if (!is.null(attr(cfg, "method"))) {
+    return(sprintf("data-informed (%s)", attr(cfg, "method")))
+  }
+  if (!is.null(cfg)) {
+    given <- c("intercept", "slope", "aux")[!vapply(cfg[c("intercept", "slope", "aux")], is.null, logical(1))]
+    if (length(given) == 0L) return("rstanarm defaults (weakly informative, autoscaled)")
+    if (length(given) == 3L) return("user-specified")
+    return(sprintf("user-specified for %s; rstanarm defaults otherwise",
+                   paste(given, collapse = " and ")))
+  }
+  if (is_default_priors(ps, X)) "rstanarm defaults (weakly informative, autoscaled)" else "user-specified"
+}
+
+is_default_priors <- function(ps, X) {
+  has_slopes <- length(setdiff(colnames(X), "(Intercept)")) > 0L
+  slope_default <- !has_slopes ||
+    (isTRUE(ps$prior$dist == "normal") && all(ps$prior$scale == 2.5) &&
+       !is.null(ps$prior$adjusted_scale))
+  intercept_default <- is.null(ps$prior_intercept) ||
+    (isTRUE(ps$prior_intercept$dist == "normal") && isTRUE(ps$prior_intercept$scale == 2.5))
+  aux_default <- is.null(ps$prior_aux) ||
+    (isTRUE(ps$prior_aux$dist == "exponential") && isTRUE(ps$prior_aux$rate == 1))
+  slope_default && intercept_default && aux_default
 }
 
 describe_prior_rows <- function(priors) {
@@ -229,41 +296,98 @@ describe_prior_rows <- function(priors) {
 }
 
 # Posterior predictive p-values P(T(yrep) >= T(y)) for simple statistics.
-ppc_pvalues <- function(fit, ndraws = 1000L) {
+# For binary outcomes, a binned calibration statistic replaces the SD, min and
+# max (which are determined by the mean for 0/1 data).
+ppc_pvalues <- function(fit, ndraws = 1000L, seed = 1234) {
   y <- rstanarm::get_y(fit)
   if (is.matrix(y)) y <- y[, 1L]
   y <- if (is.factor(y) || is.logical(y)) binary_to_01(y) else as.numeric(y)
-  yrep <- rstanarm::posterior_predict(fit, draws = min(ndraws, nrow(as.matrix(fit))), seed = 1)
+  nd <- min(ndraws, nrow(as.matrix(fit)))
+  yrep <- preserve_seed(rstanarm::posterior_predict(fit, draws = nd, seed = seed))
   binary <- all(y %in% c(0, 1))
   stats_fun <- if (binary) list(mean = mean) else list(mean = mean, sd = sd, min = min, max = max)
-  data.frame(
+  out <- data.frame(
     statistic = names(stats_fun),
     observed = vapply(stats_fun, function(f) f(y), numeric(1)),
     p_value = vapply(stats_fun, function(f) mean(apply(yrep, 1L, f) >= f(y)), numeric(1)),
+    one_sided = FALSE,
     stringsAsFactors = FALSE, row.names = NULL
   )
+  if (binary && length(y) >= 20L) {
+    p_hat <- colMeans(preserve_seed(rstanarm::posterior_epred(fit, draws = nd)))
+    calib <- binned_calibration(p_hat, n_bins = min(10L, length(y) %/% 20L))
+    t_obs <- calib(y)
+    t_rep <- apply(yrep, 1L, calib)
+    out <- rbind(out, data.frame(statistic = "calibration", observed = t_obs,
+                                 p_value = mean(t_rep >= t_obs), one_sided = TRUE,
+                                 stringsAsFactors = FALSE))
+  }
+  out
+}
+
+# Returns a function computing sum_b (O_b - E_b)^2 / (n_b pbar_b (1 - pbar_b))
+# over bins of the fitted probabilities.
+binned_calibration <- function(p_hat, n_bins) {
+  n_bins <- max(2L, n_bins)
+  breaks <- unique(stats::quantile(p_hat, seq(0, 1, length.out = n_bins + 1L)))
+  bin <- if (length(breaks) < 3L) rep(1L, length(p_hat)) else
+    cut(p_hat, breaks, include.lowest = TRUE, labels = FALSE)
+  expected <- tapply(p_hat, bin, sum)
+  n_b <- tabulate(bin)
+  pbar <- expected / n_b
+  denom <- pmax(n_b * pbar * (1 - pbar), 1e-8)
+  function(y) sum((tapply(y, bin, sum) - expected)^2 / denom)
+}
+
+#' @rdname workflow_report
+#' @param x A `bmb_report` object.
+#' @param type `"text"` (as printed) or `"markdown"`.
+#' @param digits Significant digits in the posterior summary.
+#' @param ... Unused.
+#' @export
+format.bmb_report <- function(x, type = c("text", "markdown"), digits = 3, ...) {
+  type <- match.arg(type)
+  it <- x$items
+  post <- x$posterior
+  num <- vapply(post, is.numeric, logical(1))
+  post[num] <- lapply(post[num], signif, digits = digits)
+  n_check <- sum(it$status == "check")
+  n_missing <- sum(it$status == "missing")
+  footer <- sprintf("%d item(s) need attention, %d not yet done.", n_check, n_missing)
+  if (type == "markdown") {
+    esc <- function(v) gsub("|", "\\|", v, fixed = TRUE)
+    rows <- sprintf("| %d | %s | %s | %s |", seq_len(nrow(it)), esc(it$item), it$status, esc(it$detail))
+    post_chr <- lapply(post, function(v) esc(as.character(v)))
+    post_rows <- do.call(paste, c(post_chr, sep = " | "))
+    return(c(
+      "## Bayesian analysis report (BARG checklist; Kruschke, 2021)", "",
+      "| # | Item | Status | Detail |", "|---|---|---|---|", rows, "",
+      "### Posterior summary", "",
+      paste0("| ", paste(names(post), collapse = " | "), " |"),
+      paste0("|", paste(rep("---", ncol(post)), collapse = "|"), "|"),
+      paste0("| ", post_rows, " |"), "",
+      footer
+    ))
+  }
+  marks <- c(ok = "[ok]   ", check = "[check]", missing = "[ -- ] ")
+  lines <- c("Bayesian analysis report (BARG checklist; Kruschke, 2021)", strrep("=", 60))
+  for (i in seq_len(nrow(it))) {
+    lines <- c(lines, sprintf("%s %d. %s", marks[[it$status[i]]], i, it$item[i]),
+               strwrap(it$detail[i], width = 76, indent = 10, exdent = 10))
+  }
+  c(lines, "", "Posterior summary:", utils::capture.output(print(post, row.names = FALSE)),
+    "", footer)
 }
 
 #' @export
 print.bmb_report <- function(x, digits = 3, ...) {
-  cat("Bayesian analysis report (BARG checklist; Kruschke, 2021)\n")
-  cat(strrep("=", 60), "\n", sep = "")
-  it <- x$items
-  marks <- c(ok = "[ok]   ", check = "[check]", missing = "[ -- ] ")
-  for (i in seq_len(nrow(it))) {
-    cat(sprintf("%s %d. %s\n", marks[[it$status[i]]], i, it$item[i]))
-    wrapped <- strwrap(it$detail[i], width = 76, indent = 10, exdent = 10)
-    cat(paste(wrapped, collapse = "\n"), "\n", sep = "")
-  }
-  cat("\nPosterior summary:\n")
-  post <- x$posterior
-  num <- vapply(post, is.numeric, logical(1))
-  post[num] <- lapply(post[num], signif, digits = digits)
-  print(post, row.names = FALSE)
-  n_check <- sum(it$status == "check")
-  n_missing <- sum(it$status == "missing")
-  cat(sprintf("\n%d item(s) need attention, %d not yet done.\n", n_check, n_missing))
+  cat(format(x, type = "text", digits = digits), sep = "\n")
   invisible(x)
+}
+
+#' @exportS3Method knitr::knit_print
+knit_print.bmb_report <- function(x, ...) {
+  knitr::asis_output(paste(format(x, type = "markdown"), collapse = "\n"))
 }
 
 #' @export

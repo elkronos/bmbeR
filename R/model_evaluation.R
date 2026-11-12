@@ -32,11 +32,18 @@
 #' In bmbeR 1.x, classification thresholded `predict()` output, which for
 #' rstanarm is on the link (log-odds) scale; probabilities are now used.
 #'
+#' **Offsets.** Offsets written in the formula (e.g.
+#' `y ~ x + offset(log(exposure))`) are computed from `data_test`. If the
+#' model was fitted with the `offset` argument instead, supply the test-data
+#' offset with `offset`.
+#'
+#' R's random number stream is left unchanged.
+#'
 #' @param fit A `stanreg` object.
 #' @param data_test A data frame of test data containing the model's
 #'   variables. Rows with missing values in those variables are dropped.
-#' @param formula Optional. Defaults to the model's formula; retained for
-#'   compatibility with bmbeR 1.x.
+#' @param formula Optional; retained for compatibility with bmbeR 1.x. It
+#'   must be the model's formula.
 #' @param threshold Probability threshold for classification.
 #' @param analysis_type `"auto"` (classification for binary outcomes of a
 #'   binomial model, regression otherwise), `"regression"` or
@@ -45,6 +52,8 @@
 #'   `Coverage`.
 #' @param ndraws Number of posterior draws to use (default: all).
 #' @param seed Seed for posterior predictive simulation.
+#' @param offset Offset for the test data, on the link scale, when the model
+#'   was fitted with the `offset` argument of [rstanarm::stan_glm()].
 #'
 #' @return An object of class `bmb_performance`: a named list of metrics
 #'   (see Details) with attributes `type` and `n`. Access metrics with `$`,
@@ -75,21 +84,38 @@
 evaluate_model_performance <- function(fit, data_test, formula = NULL,
                                        threshold = 0.5,
                                        analysis_type = c("auto", "regression", "classification"),
-                                       prob = 0.9, ndraws = NULL, seed = 1234) {
+                                       prob = 0.9, ndraws = NULL, seed = 1234,
+                                       offset = NULL) {
   check_stanreg(fit)
   analysis_type <- match.arg(analysis_type)
   validate_probability(threshold, "threshold", open = TRUE)
   validate_probability(prob, "prob", open = TRUE)
-  formula <- formula %||% stats::formula(fit)
+  validate_seed(seed)
+  fit_formula <- stats::formula(fit)
+  if (!is.null(formula) && !identical(deparse(formula), deparse(fit_formula))) {
+    stop(sprintf("`formula` (%s) differs from the model's formula (%s); omit it.",
+                 paste(deparse(formula), collapse = " "),
+                 paste(deparse(fit_formula), collapse = " ")), call. = FALSE)
+  }
+  formula <- fit_formula
   validate_data_formula(data_test, formula, data_arg = "data_test")
 
-  vars <- intersect(all.vars(stats::formula(fit)), colnames(data_test))
+  vars <- intersect(all.vars(stats::terms(fit)), colnames(data_test))
   complete <- stats::complete.cases(data_test[, vars, drop = FALSE])
+  if (!is.null(offset)) {
+    if (!is.numeric(offset) || length(offset) != nrow(data_test)) {
+      stop("`offset` must be a numeric vector with one value per row of `data_test`.",
+           call. = FALSE)
+    }
+    complete <- complete & !is.na(offset)
+  }
   if (any(!complete)) {
     message(sprintf("Dropped %d test row(s) with missing values.", sum(!complete)))
     data_test <- data_test[complete, , drop = FALSE]
+    if (!is.null(offset)) offset <- offset[complete]
   }
   if (nrow(data_test) == 0L) stop("No complete test observations.", call. = FALSE)
+  off <- test_offset(fit, data_test, offset)
 
   y <- get_response(formula, data_test)
   fam <- stats::family(fit)$family
@@ -102,7 +128,7 @@ evaluate_model_performance <- function(fit, data_test, formula = NULL,
   }
 
   draws <- if (is.null(ndraws)) NULL else min(ndraws, nrow(as.matrix(fit)))
-  ll <- rstanarm::log_lik(fit, newdata = data_test, draws = draws)
+  ll <- preserve_seed(rstanarm::log_lik(fit, newdata = data_test, draws = draws, offset = off))
   elpd_i <- log_mean_exp_cols(ll)
   n <- length(elpd_i)
   out <- list(
@@ -111,14 +137,16 @@ evaluate_model_performance <- function(fit, data_test, formula = NULL,
     ELPD_mean = mean(elpd_i)
   )
 
-  epred <- rstanarm::posterior_epred(fit, newdata = data_test, draws = draws)
+  epred <- preserve_seed(rstanarm::posterior_epred(fit, newdata = data_test, draws = draws,
+                                                   offset = off))
   if (type == "classification") {
     y01 <- binary_to_01(y)
     p <- colMeans(epred)
     cls <- as.integer(p > threshold)
     out <- c(out, classification_metrics(y01, p, cls))
   } else {
-    yrep <- rstanarm::posterior_predict(fit, newdata = data_test, draws = draws, seed = seed)
+    yrep <- preserve_seed(rstanarm::posterior_predict(fit, newdata = data_test, draws = draws,
+                                                      seed = seed, offset = off))
     if (is.matrix(y)) {
       # cbind(successes, failures): score the number of successes.
       trials <- rowSums(y)
@@ -138,8 +166,28 @@ evaluate_model_performance <- function(fit, data_test, formula = NULL,
       Interval_Width = mean(hi - lo)
     ))
   }
+  signature <- list(y = unname(as.vector(as.matrix(y))), rows = rownames(data_test))
   structure(out, class = "bmb_performance", type = type, n = n, prob = prob,
-            threshold = threshold, elpd_pointwise = elpd_i)
+            threshold = threshold, elpd_pointwise = elpd_i, test_signature = signature)
+}
+
+# Total offset for the test data: offset terms in the formula, computed from
+# `data_test`, plus any offset supplied by the user. rstanarm does not compute
+# formula offsets for new data itself.
+test_offset <- function(fit, data_test, offset = NULL) {
+  mf <- stats::model.frame(stats::terms(fit), data_test, na.action = stats::na.pass)
+  formula_off <- stats::model.offset(mf)
+  call_off <- !is.null(fit$call$offset)
+  if (call_off && is.null(offset)) {
+    stop("The model was fitted with the `offset` argument; supply `offset` for the test data.",
+         call. = FALSE)
+  }
+  if (!call_off && !is.null(offset)) {
+    stop("The model was fitted without an `offset` argument; `offset` must be NULL.",
+         call. = FALSE)
+  }
+  if (is.null(formula_off) && is.null(offset)) return(NULL)
+  (formula_off %||% 0) + (offset %||% 0)
 }
 
 #' Compare models on the same held-out data
@@ -183,7 +231,10 @@ compare_performance <- function(...) {
   }
   pw <- lapply(perfs, attr, "elpd_pointwise")
   n <- vapply(pw, length, integer(1))
-  if (length(unique(n)) != 1L) {
+  sigs <- lapply(perfs, attr, "test_signature")
+  same <- length(unique(n)) == 1L &&
+    all(vapply(sigs[-1L], identical, logical(1), sigs[[1L]]))
+  if (!same) {
     stop("All models must be evaluated on the same test observations.", call. = FALSE)
   }
   elpd <- vapply(pw, sum, numeric(1))

@@ -2,6 +2,7 @@
 % Please edit documentation in R/report.R
 \name{workflow_report}
 \alias{workflow_report}
+\alias{format.bmb_report}
 \title{Bayesian analysis report (BARG checklist)}
 \usage{
 workflow_report(
@@ -9,8 +10,11 @@ workflow_report(
   prior_check = NULL,
   sensitivity = NULL,
   performance = NULL,
-  prob = 0.95
+  prob = 0.95,
+  seed = 1234
 )
+
+\method{format}{bmb_report}(x, type = c("text", "markdown"), digits = 3, ...)
 }
 \arguments{
 \item{fit}{A \code{stanreg} object from \code{\link[rstanarm:stan_glm]{rstanarm::stan_glm()}} or
@@ -25,6 +29,17 @@ workflow_report(
 held-out data.}
 
 \item{prob}{Probability mass of the reported credible intervals.}
+
+\item{seed}{Seed for the posterior predictive simulations. R's random
+number stream is left unchanged.}
+
+\item{x}{A \code{bmb_report} object.}
+
+\item{type}{\code{"text"} (as printed) or \code{"markdown"}.}
+
+\item{digits}{Significant digits in the posterior summary.}
+
+\item{...}{Unused.}
 }
 \value{
 An object of class \code{bmb_report} with elements \code{items} (a data
@@ -44,6 +59,21 @@ p-values, PSIS-LOO and power-scaling prior sensitivity.
 Supply the results of steps that require extra work, such as
 \code{\link[=prior_predictive_check]{prior_predictive_check()}} and \code{\link[=evaluate_model_performance]{evaluate_model_performance()}}, to
 complete the checklist.
+
+Posterior predictive p-values use the mean, SD, minimum and maximum of the
+outcome. For binary outcomes the mean is reproduced by any model with an
+intercept, so a binned calibration statistic is used as well: observations
+are grouped by their fitted probability and the squared standardised
+differences between observed and expected successes are summed (a posterior
+predictive version of the Hosmer-Lemeshow statistic; only large values
+indicate misfit).
+
+Held-out performance is marked \code{check} when the coverage of the predictive
+intervals differs from \code{prob} of \code{\link[=evaluate_model_performance]{evaluate_model_performance()}} by more
+than two binomial standard errors.
+
+Use \code{format(report, type = "markdown")} (or knit the object in R Markdown
+or Quarto) for a Markdown version of the checklist.
 }
 \examples{
 \donttest{

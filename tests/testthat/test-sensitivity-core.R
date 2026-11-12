@@ -57,3 +57,13 @@ test_that("a flat prior has zero prior sensitivity", {
   expect_equal(r$summary$prior_mean_sens, 0)
   expect_true(all(r$perturbation$shift_sd[r$perturbation$component == "prior"] == 0))
 })
+
+test_that("parameters with constant draws get NA sensitivities, not NaN", {
+  set.seed(1)
+  th <- cbind(a = rnorm(2000), z = 0)
+  r <- bmbeR:::power_scaling_core(th, dnorm(th[, "a"], log = TRUE), rnorm(2000))
+  z <- r$summary[r$summary$variable == "z", ]
+  expect_true(is.na(z$prior_mean_sens) && !is.nan(z$prior_mean_sens))
+  expect_equal(z$diagnosis, "-")
+  expect_false(any(is.nan(r$perturbation$shift_sd)))
+})

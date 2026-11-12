@@ -46,6 +46,7 @@ reference:
   - prior_config
   - empirical_bayes_priors
   - build_stanarm_priors
+  - prior_table
 - title: Check priors before fitting
   contents:
   - prior_predictive_check

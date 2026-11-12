@@ -100,6 +100,14 @@ evaluate_model_performance(fit_kid, kidiq[test_rows, ], prob = 0.9)
 Coverage close to the nominal 90% means the predictive intervals are about
 the right width; much lower coverage signals overconfidence.
 
+## Offsets
+
+Count models with an exposure, such as `y ~ x + offset(log(time))`, need the
+offset of each test observation. Offsets written in the formula are computed
+from the test data. If the model was fitted with the `offset` argument of
+`stan_glm()` instead, pass the test offsets with
+`evaluate_model_performance(fit, test, offset = log(test$time))`.
+
 ## Held-out data or LOO?
 
 When no test set is available, PSIS-LOO cross-validation (Vehtari et al.,

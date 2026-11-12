@@ -169,12 +169,18 @@ power_scaling_core <- function(theta, log_prior, log_lik, alpha = c(0.8, 1.25),
   S <- nrow(theta)
   mu <- colMeans(theta)
   sdv <- apply(theta, 2L, sd)
+  # Sensitivities are relative to the posterior SD, so they are undefined
+  # for parameters with constant draws.
+  sdv_div <- ifelse(sdv > 0, sdv, NA_real_)
   local <- function(lw) {
-    if (sd(lw) == 0) return(list(mean = rep(0, ncol(theta)), sd = rep(0, ncol(theta))))
+    if (sd(lw) == 0) {
+      zero <- ifelse(sdv > 0, 0, NA_real_)
+      return(list(mean = zero, sd = zero))
+    }
     centred <- sweep(theta, 2L, mu)
     list(
-      mean = as.numeric(cov(theta, lw)) / sdv,
-      sd = as.numeric(cov(centred^2, lw)) / (2 * sdv^2)
+      mean = as.numeric(cov(theta, lw)) / sdv_div,
+      sd = as.numeric(cov(centred^2, lw)) / (2 * sdv_div^2)
     )
   }
   lp <- local(log_prior)
@@ -208,7 +214,7 @@ power_scaling_core <- function(theta, log_prior, log_lik, alpha = c(0.8, 1.25),
       pert[[length(pert) + 1L]] <- data.frame(
         component = comp, alpha = a, variable = colnames(theta),
         mean = unname(m_w), sd = unname(sd_w),
-        shift_sd = unname((m_w - mu) / sdv), sd_ratio = unname(sd_w / sdv),
+        shift_sd = unname((m_w - mu) / sdv_div), sd_ratio = unname(sd_w / sdv_div),
         pareto_k = k, reliable = k <= kmax, stringsAsFactors = FALSE
       )
     }
@@ -239,11 +245,14 @@ diagnose_sensitivity <- function(s, threshold, z_threshold = 2) {
   influence <- pmax(abs(s$prior_mean_sens), abs(s$prior_sd_sens))
   lik <- abs(s$lik_sd_sens)
   z <- abs(s$conflict_z)
-  ifelse(influence < threshold, "-",
+  ifelse(is.na(influence) | influence < threshold, "-",
          ifelse(lik < threshold, "weak likelihood",
                 ifelse(!is.na(z) & z >= z_threshold, "prior-data conflict",
                        "informative prior")))
 }
+
+#' @export
+as.data.frame.bmb_prior_sensitivity <- function(x, ...) x$summary
 
 #' @export
 print.bmb_prior_sensitivity <- function(x, digits = 3, ...) {
@@ -340,27 +349,44 @@ plot.bmb_prior_sensitivity <- function(x, ...) {
 #' change the estimate of a parameter substantially while barely changing
 #' predictions, so both parts of the output should be examined.
 #'
+#' PSIS-LOO is unreliable when observations have high Pareto \eqn{\hat{k}};
+#' the number of such observations is reported for each configuration. Use
+#' `k_threshold` to refit those observations, or `cv = "kfold"` for K-fold
+#' cross-validation (Vehtari et al., 2017).
+#'
+#' All configurations are validated before any model is fitted. If fitting
+#' one configuration fails, the error is recorded in `errors` and the others
+#' are still compared; the reference configuration must succeed.
+#'
 #' @inheritParams fit_model_with_prior
 #' @param prior_configurations A *named* list of prior configurations (each
 #'   anything accepted by `prior_config` in [fit_model_with_prior()], with
 #'   `NULL` meaning rstanarm's defaults), or the bmbeR 1.x format: an
 #'   unnamed list of `list(label = , prior_config = )`.
 #' @param reference Name or index of the reference configuration.
-#' @param metric LOO estimate reported per configuration: `"elpd_loo"`,
-#'   `"p_loo"` or `"looic"`.
+#' @param metric Estimate reported per configuration: `"elpd_loo"`,
+#'   `"p_loo"` or `"looic"` (with `cv = "kfold"`, the K-fold equivalents).
 #' @param shift_threshold Posterior-mean shift (in reference SDs) that is
 #'   flagged.
 #' @param k_threshold Passed to [loo::loo()]: if not `NULL`, observations
 #'   with Pareto \eqn{\hat{k}} above it are refitted exactly (slow).
+#' @param cv Cross-validation method: `"loo"` (PSIS-LOO, default) or
+#'   `"kfold"` (refits each model `K` times; slower but does not depend on
+#'   Pareto \eqn{\hat{k}}).
+#' @param K Number of folds when `cv = "kfold"`.
 #' @param keep_fits Keep the fitted models in the result?
-#' @param ... Further arguments passed to [fit_model_with_prior()].
+#' @param ... Further arguments passed to [fit_model_with_prior()]
+#'   (including `on_nonconvergence` and `convergence_args`) and from there to
+#'   [rstanarm::stan_glm()].
 #'
 #' @return An object of class `bmb_sensitivity` with elements `summary`
 #'   (posterior summaries by configuration and parameter), `comparison` (a
 #'   data frame of paired PSIS-LOO differences, as in [loo::loo_compare()],
-#'   with one row per configuration), `metric` (named vector of the chosen LOO
-#'   estimate), `converged` (named logical), `loo` (list of loo objects) and,
-#'   if `keep_fits = TRUE`, `fits`.
+#'   with one row per configuration and the column `n_high_k`), `metric`
+#'   (named vector of the chosen estimate), `converged` (named logical), `loo`
+#'   (list of loo or kfold objects), `cv`, `errors` (named character vector of
+#'   failed configurations) and, if `keep_fits = TRUE`, `fits`. Use
+#'   `as.data.frame()` for the posterior summaries.
 #' @references
 #' Vehtari, A., Gelman, A., & Gabry, J. (2017). Practical Bayesian model
 #' evaluation using leave-one-out cross-validation and WAIC. *Statistics and
@@ -386,36 +412,88 @@ sensitivity_analysis <- function(data, formula, prior_configurations,
                                  reference = 1L,
                                  metric = c("elpd_loo", "p_loo", "looic"),
                                  shift_threshold = 0.5, k_threshold = NULL,
+                                 cv = c("loo", "kfold"), K = 10L,
                                  keep_fits = TRUE, ...) {
   metric <- match.arg(metric)
+  cv <- match.arg(cv)
+  env <- parent.frame()
+  data_expr <- substitute(data)
+  dots <- capture_dots(...)
+  own <- intersect(names(dots), c("on_nonconvergence", "convergence_args"))
+  fit_opts <- dots[own]
+  dots <- dots[setdiff(names(dots), own)]
+  on_nonconvergence <- match.arg(fit_opts$on_nonconvergence %||% "warn",
+                                 c("warn", "error", "ignore"))
+  convergence_args <- fit_opts$convergence_args %||% list()
+  if (cv == "kfold") {
+    validate_positive_integer(K, "K")
+    if (!is.null(dots$weights)) {
+      stop("rstanarm does not support K-fold cross-validation for models fitted with ",
+           "`weights`; use cv = \"loo\".", call. = FALSE)
+    }
+  }
+
+  validate_data_formula(data, formula)
+  family <- normalize_family(family, env)
   configs <- normalize_configurations(prior_configurations)
   labels <- names(configs)
-  ref <- if (is.character(reference)) match(reference, labels) else as.integer(reference)
-  if (is.na(ref) || ref < 1L || ref > length(configs)) {
+  ref <- if (is.character(reference)) match(reference, labels) else
+    if (is.numeric(reference) && reference == round(reference)) as.integer(reference) else NA_integer_
+  if (length(ref) != 1L || is.na(ref) || ref < 1L || ref > length(configs)) {
     stop("`reference` must name or index one of the prior configurations.", call. = FALSE)
+  }
+  # Validate every configuration before spending time on any fit.
+  for (i in seq_along(configs)) {
+    tryCatch(prepare_prior_config(configs[[i]], formula, data), error = function(e) {
+      stop(sprintf("Prior configuration '%s': %s", labels[i], conditionMessage(e)), call. = FALSE)
+    })
   }
 
   fits <- vector("list", length(configs))
   names(fits) <- labels
   loos <- fits
-  converged <- setNames(logical(length(configs)), labels)
+  errors <- character()
+  converged <- setNames(rep(NA, length(configs)), labels)
   for (i in seq_along(configs)) {
     message(sprintf("Fitting configuration %d/%d: '%s'", i, length(configs), labels[i]))
-    fit <- fit_model_with_prior(data = data, formula = formula, family = family,
-                                prior_config = configs[[i]], chains = chains,
-                                iter = iter, seed = seed, ...)
-    converged[i] <- attr(fit, "bmb_convergence")$converged
-    loos[[i]] <- if (is.null(k_threshold)) {
-      suppressWarnings(loo::loo(fit))
-    } else {
-      loo::loo(fit, k_threshold = k_threshold)
+    res <- tryCatch({
+      fit <- fit_glm_with_priors(data, formula, family, configs[[i]], chains = chains,
+                                 iter = iter, seed = seed, dots = dots,
+                                 data_expr = data_expr, env = env,
+                                 on_nonconvergence = on_nonconvergence,
+                                 convergence_args = convergence_args)
+      cv_obj <- if (cv == "kfold") {
+        preserve_seed(suppressMessages(loo::kfold(fit, K = K)))
+      } else if (is.null(k_threshold)) {
+        suppressWarnings(loo::loo(fit))
+      } else {
+        loo::loo(fit, k_threshold = k_threshold)
+      }
+      list(fit = fit, cv = cv_obj)
+    }, error = function(e) e)
+    if (inherits(res, "error")) {
+      if (i == ref) {
+        stop(sprintf("The reference configuration '%s' failed: %s", labels[i],
+                     conditionMessage(res)), call. = FALSE)
+      }
+      errors[labels[i]] <- conditionMessage(res)
+      warning(sprintf("Configuration '%s' failed and is left out: %s", labels[i],
+                      conditionMessage(res)), call. = FALSE)
+      next
     }
-    fits[[i]] <- fit
+    fits[[i]] <- res$fit
+    loos[[i]] <- res$cv
+    converged[i] <- attr(res$fit, "bmb_convergence")$converged
   }
+  ok <- !vapply(fits, is.null, logical(1))
+  fits <- fits[ok]
+  loos <- loos[ok]
+  converged <- converged[ok]
+  ok_labels <- labels[ok]
 
   summ <- do.call(rbind, lapply(seq_along(fits), function(i) {
     d <- as.matrix(fits[[i]])
-    data.frame(config = labels[i], variable = colnames(d),
+    data.frame(config = ok_labels[i], variable = colnames(d),
                mean = colMeans(d), sd = apply(d, 2L, sd),
                q2.5 = apply(d, 2L, stats::quantile, 0.025),
                q97.5 = apply(d, 2L, stats::quantile, 0.975),
@@ -428,37 +506,66 @@ sensitivity_analysis <- function(data, formula, prior_configurations,
   summ$flag <- !is.na(summ$shift_sd) & abs(summ$shift_sd) >= shift_threshold
   rownames(summ) <- NULL
 
-  metric_vals <- vapply(loos, function(l) l$estimates[metric, "Estimate"], numeric(1))
-  comparison <- if (length(loos) > 1L) compare_loos(loos) else NULL
+  est_row <- cv_estimate_name(metric, cv)
+  metric_vals <- vapply(loos, function(l) l$estimates[est_row, "Estimate"], numeric(1))
+  comparison <- if (length(loos) > 1L) compare_loos(loos, cv) else NULL
 
   structure(list(
     summary = summ, comparison = comparison, metric = metric_vals,
-    metric_name = metric, converged = converged, loo = loos,
-    fits = if (keep_fits) fits else NULL, reference = labels[ref],
+    metric_name = est_row, converged = converged, loo = loos, cv = cv,
+    errors = errors, fits = if (keep_fits) fits else NULL, reference = labels[ref],
     shift_threshold = shift_threshold
   ), class = "bmb_sensitivity")
 }
 
-# Paired LOO comparison with the same definitions as loo::loo_compare(),
+# Row of a loo or kfold `estimates` matrix that corresponds to `metric`.
+cv_estimate_name <- function(metric, cv) {
+  if (cv == "loo") return(metric)
+  c(elpd_loo = "elpd_kfold", p_loo = "p_kfold", looic = "kfoldic")[[metric]]
+}
+
+# Number of observations whose Pareto k exceeds the sample-size dependent
+# threshold (NA for K-fold, which does not use importance sampling).
+n_high_pareto_k <- function(l) {
+  if (is.null(l$diagnostics$pareto_k)) return(NA_integer_)
+  k <- l$diagnostics$pareto_k
+  S <- attr(l, "dims")[1L] %||% 4000
+  sum(k > pareto_k_threshold(S))
+}
+
+# Paired comparison with the same definitions as loo::loo_compare(),
 # computed directly so the result does not depend on that function's output
 # format (a matrix before loo 2.10, a data frame afterwards).
-compare_loos <- function(loos) {
-  pw <- lapply(loos, function(l) l$pointwise[, "elpd_loo"])
+compare_loos <- function(loos, cv = "loo") {
+  col <- if (cv == "kfold") "elpd_kfold" else "elpd_loo"
+  pw <- lapply(loos, function(l) l$pointwise[, col])
   elpd <- vapply(pw, sum, numeric(1))
   best <- which.max(elpd)
   diffs <- lapply(pw, function(x) x - pw[[best]])
+  p_row <- if (cv == "kfold") "p_kfold" else "p_loo"
   out <- data.frame(
     elpd_diff = vapply(diffs, sum, numeric(1)),
     se_diff = vapply(diffs, function(d) sqrt(length(d)) * sd(d), numeric(1)),
-    elpd_loo = elpd,
-    se_elpd_loo = vapply(loos, function(l) l$estimates["elpd_loo", "SE"], numeric(1)),
-    p_loo = vapply(loos, function(l) l$estimates["p_loo", "Estimate"], numeric(1)),
+    elpd = elpd,
+    se_elpd = vapply(loos, function(l) l$estimates[col, "SE"], numeric(1)),
+    p_eff = vapply(loos, function(l) {
+      if (p_row %in% rownames(l$estimates)) l$estimates[p_row, "Estimate"] else NA_real_
+    }, numeric(1)),
+    n_high_k = vapply(loos, n_high_pareto_k, integer(1)),
     row.names = names(loos)
   )
-  out[order(-out$elpd_loo), , drop = FALSE]
+  names(out)[names(out) == "elpd"] <- col
+  names(out)[names(out) == "se_elpd"] <- paste0("se_", col)
+  names(out)[names(out) == "p_eff"] <- p_row
+  out[order(-out[[col]]), , drop = FALSE]
 }
 
 normalize_configurations <- function(x) {
+  if (inherits(x, c("bmb_prior_config", "bmb_prior"))) {
+    stop("`prior_configurations` must be a named list of configurations, e.g. ",
+         "list(default = NULL, mine = prior_config(...)), not a single configuration.",
+         call. = FALSE)
+  }
   if (!is.list(x) || length(x) == 0L) {
     stop("`prior_configurations` must be a non-empty list.", call. = FALSE)
   }
@@ -485,11 +592,17 @@ normalize_configurations <- function(x) {
 }
 
 #' @export
+as.data.frame.bmb_sensitivity <- function(x, ...) x$summary
+
+#' @export
 print.bmb_sensitivity <- function(x, digits = 3, ...) {
   cat(sprintf("<bmb_sensitivity> %d prior configurations (reference: '%s')\n",
               length(x$metric), x$reference))
-  if (any(!x$converged)) {
-    cat("  ! Convergence failed for:", paste(names(x$converged)[!x$converged], collapse = ", "), "\n")
+  if (length(x$errors) > 0L) {
+    cat("  ! Failed and left out:", paste(names(x$errors), collapse = ", "), "\n")
+  }
+  if (any(!x$converged, na.rm = TRUE)) {
+    cat("  ! Convergence failed for:", paste(names(x$converged)[which(!x$converged)], collapse = ", "), "\n")
   }
   s <- x$summary
   cat("\nPosterior means by configuration (shift in reference posterior SDs):\n")
@@ -508,10 +621,19 @@ print.bmb_sensitivity <- function(x, digits = 3, ...) {
     cat(sprintf("  ! = shift of at least %s posterior SDs\n", x$shift_threshold))
   }
   if (!is.null(x$comparison)) {
-    cat("\nPredictive comparison (PSIS-LOO; differences relative to the best):\n")
-    cmp <- x$comparison[, c("elpd_diff", "se_diff", "elpd_loo", "p_loo"), drop = FALSE]
-    print(round(cmp, 1))
+    cv <- x$cv %||% "loo"
+    label <- if (cv == "kfold") "K-fold cross-validation" else "PSIS-LOO"
+    cat(sprintf("\nPredictive comparison (%s; differences relative to the best):\n", label))
+    cmp <- x$comparison
+    num <- vapply(cmp, is.numeric, logical(1)) & names(cmp) != "n_high_k"
+    cmp[num] <- lapply(cmp[num], round, 1)
+    if (all(is.na(cmp$n_high_k))) cmp$n_high_k <- NULL
+    print(cmp)
     cat("  |elpd_diff| smaller than ~2 se_diff is not a meaningful difference.\n")
+    if (any(cmp$n_high_k > 0L, na.rm = TRUE)) {
+      cat("  ! Some observations have high Pareto k (n_high_k), so PSIS-LOO is unreliable for\n",
+          "   those configurations. Use k_threshold = 0.7 or cv = \"kfold\".\n")
+    }
   }
   invisible(x)
 }

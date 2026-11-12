@@ -12,7 +12,8 @@ evaluate_model_performance(
   analysis_type = c("auto", "regression", "classification"),
   prob = 0.9,
   ndraws = NULL,
-  seed = 1234
+  seed = 1234,
+  offset = NULL
 )
 }
 \arguments{
@@ -21,8 +22,8 @@ evaluate_model_performance(
 \item{data_test}{A data frame of test data containing the model's
 variables. Rows with missing values in those variables are dropped.}
 
-\item{formula}{Optional. Defaults to the model's formula; retained for
-compatibility with bmbeR 1.x.}
+\item{formula}{Optional; retained for compatibility with bmbeR 1.x. It
+must be the model's formula.}
 
 \item{threshold}{Probability threshold for classification.}
 
@@ -36,6 +37,9 @@ binomial model, regression otherwise), \code{"regression"} or
 \item{ndraws}{Number of posterior draws to use (default: all).}
 
 \item{seed}{Seed for posterior predictive simulation.}
+
+\item{offset}{Offset for the test data, on the link scale, when the model
+was fitted with the \code{offset} argument of \code{\link[rstanarm:stan_glm]{rstanarm::stan_glm()}}.}
 }
 \value{
 An object of class \code{bmb_performance}: a named list of metrics
@@ -80,6 +84,13 @@ better; Brier, 1950).
 
 In bmbeR 1.x, classification thresholded \code{predict()} output, which for
 rstanarm is on the link (log-odds) scale; probabilities are now used.
+
+\strong{Offsets.} Offsets written in the formula (e.g.
+\code{y ~ x + offset(log(exposure))}) are computed from \code{data_test}. If the
+model was fitted with the \code{offset} argument instead, supply the test-data
+offset with \code{offset}.
+
+R's random number stream is left unchanged.
 }
 \examples{
 \donttest{

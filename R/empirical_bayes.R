@@ -18,7 +18,10 @@
 #'   sampling variance, i.e. the prior carries the information of a single
 #'   observation. It is the prior implicit in BIC and is suitable when the
 #'   same data are used to fit the model, because it adds only `1/n` of the
-#'   data's information.
+#'   data's information. `n` counts Bernoulli trials for a binomial response
+#'   given as `cbind(successes, failures)`, and is the sum of `weights` when
+#'   weights are given (they are treated as frequency weights, or as the
+#'   number of trials for proportions).
 #' * `method = "eb_shrinkage"` (parametric empirical Bayes; Efron & Morris,
 #'   1973; Morris, 1983): coefficients are placed on a common scale by
 #'   multiplying by the predictor standard deviations, and a shared prior
@@ -35,7 +38,10 @@
 #'   normal approximation to the historical likelihood raised to the power
 #'   `a0`: centred at the historical estimates, with variances inflated by
 #'   `1 / a0`. `a0 = 1` borrows the historical data at full weight; smaller
-#'   values discount it.
+#'   values discount it. The historical predictor means usually differ from
+#'   those of the analysed data, so [fit_model_with_prior()] and
+#'   [prior_predictive_check()] re-express the intercept prior at the
+#'   analysed data's predictor means before fitting.
 #'
 #' With `type = "student_t"` or `"cauchy"`, the same locations and scales are
 #' used with heavier tails, which lets the data override the prior if the two
@@ -52,13 +58,17 @@
 #'   `"cauchy"`.
 #' @param a0 Power-prior discount in `(0, 1]` (only for `method = "power"`).
 #' @param df Degrees of freedom when `type = "student_t"`.
+#' @param weights Optional weights for the maximum-likelihood fit: a numeric
+#'   vector, or the name of a column of `data` (unquoted, as in [stats::glm()]).
+#'   Use the same weights as in the model you will fit.
 #' @param dist_types Deprecated (bmbeR 1.x). rstanarm requires a single prior
 #'   family for all coefficients; use `type`.
 #'
 #' @return A [prior_config()] object (class `bmb_prior_config`) that can be
 #'   passed to [fit_model_with_prior()], with attributes `table` (a data frame
-#'   of estimates, standard errors and prior parameters), `method`, `terms`
-#'   and, for `"eb_shrinkage"`, `tau`.
+#'   of estimates, standard errors and prior parameters), `method`, `terms`,
+#'   `n` (the effective sample size used by the unit-information prior) and,
+#'   for `"eb_shrinkage"`, `tau`.
 #'
 #' @references
 #' Kass, R. E., & Wasserman, L. (1995). A reference Bayesian test for nested
@@ -92,7 +102,7 @@
 empirical_bayes_priors <- function(data, formula, family = gaussian(),
                                    method = c("unit_information", "eb_shrinkage", "power"),
                                    type = c("normal", "student_t", "cauchy"),
-                                   a0 = 0.5, df = 3, dist_types = NULL) {
+                                   a0 = 0.5, df = 3, weights = NULL, dist_types = NULL) {
   method <- match.arg(method)
   if (!is.null(dist_types)) {
     types <- unique(unlist(dist_types))
@@ -106,23 +116,39 @@ empirical_bayes_priors <- function(data, formula, family = gaussian(),
   }
   type <- match.arg(type)
   validate_data_formula(data, formula)
-  family <- normalize_family(family)
+  family <- normalize_family(family, parent.frame())
+  w <- eval(substitute(weights), data, parent.frame())
+  if (!is.null(w)) {
+    if (!is.numeric(w) || length(w) != nrow(data) || any(w < 0, na.rm = TRUE)) {
+      stop("`weights` must be non-negative numbers, one per row of `data`.", call. = FALSE)
+    }
+    data$.bmb_weights <- w
+  }
   validate_numeric(df, "df", positive = TRUE)
   if (method == "power") {
     validate_numeric(a0, "a0", positive = TRUE)
     if (a0 > 1) stop("`a0` must lie in (0, 1].", call. = FALSE)
   }
 
-  mf <- model.frame(formula, data = data, na.action = na.omit)
+  mf <- if (is.null(w)) {
+    model.frame(formula, data = data, na.action = na.omit)
+  } else {
+    model.frame(formula, data = data, weights = .bmb_weights, na.action = na.omit)
+  }
   n_dropped <- nrow(data) - nrow(mf)
   if (n_dropped > 0L) {
     message(sprintf("Dropped %d row(s) with missing values in the model variables.", n_dropped))
   }
-  check_response_family(model.response(mf), family)
+  y <- model.response(mf)
+  check_response_family(y, family)
 
-  mle <- fit_mle(formula, data, family)
+  mle <- fit_mle(formula, data, family, weighted = !is.null(w))
   X <- mle$X
-  n <- nrow(X)
+  # Number of observations a "unit" of information refers to: Bernoulli
+  # trials for cbind(successes, failures), weighted counts with weights.
+  n_unit <- if (is.matrix(y)) rowSums(y) else rep(1, nrow(X))
+  if (!is.null(w)) n_unit <- n_unit * stats::model.weights(mf)
+  n <- sum(n_unit)
   terms_x <- colnames(X)
   has_intercept <- "(Intercept)" %in% terms_x
   slopes <- setdiff(terms_x, "(Intercept)")
@@ -185,6 +211,10 @@ empirical_bayes_priors <- function(data, formula, family = gaussian(),
   attr(cfg, "tau") <- tau
   attr(cfg, "a0") <- if (method == "power") a0
   attr(cfg, "family") <- family$family
+  if (has_intercept) {
+    attr(cfg, "intercept_basis") <- list(beta = beta, vcov = V, inflate = inflate,
+                                         xbar = if (length(slopes) > 0L) xbar else numeric())
+  }
   if (method == "power") {
     message("method = \"power\": `data` is treated as historical data. Do not fit the ",
             "resulting priors to the same data.")
@@ -227,15 +257,36 @@ print.bmb_prior_config <- function(x, ...) {
 
 # Maximum-likelihood fit used to derive priors. Returns the design matrix,
 # coefficients and covariance matrix.
-fit_mle <- function(formula, data, family) {
+fit_mle <- function(formula, data, family, weighted = FALSE) {
   if (family$family == "neg_binomial_2") {
     stop("empirical_bayes_priors() does not support neg_binomial_2; ",
          "use a poisson family to derive priors for the coefficients.", call. = FALSE)
   }
-  m <- suppressWarnings(glm(formula, data = data, family = family, na.action = na.omit))
+  glm_warnings <- character()
+  m <- withCallingHandlers(
+    if (weighted) {
+      glm(formula, data = data, family = family, weights = .bmb_weights, na.action = na.omit)
+    } else {
+      glm(formula, data = data, family = family, na.action = na.omit)
+    },
+    warning = function(w) {
+      glm_warnings <<- c(glm_warnings, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
   if (!m$converged) {
     warning("The maximum-likelihood fit used to derive priors did not converge ",
             "(separation in a logistic model?). Priors may be unreliable.", call. = FALSE)
+  } else if (any(grepl("fitted probabilities numerically 0 or 1", glm_warnings))) {
+    warning("The maximum-likelihood fit used to derive priors has fitted probabilities ",
+            "of 0 or 1 (separation in a logistic model?). Priors for the affected ",
+            "coefficients may be far too wide or misplaced.", call. = FALSE)
+  }
+  other <- setdiff(unique(glm_warnings),
+                   c("glm.fit: algorithm did not converge",
+                     "glm.fit: fitted probabilities numerically 0 or 1 occurred"))
+  for (msg in other) {
+    warning("The maximum-likelihood fit used to derive priors warned: ", msg, call. = FALSE)
   }
   X <- model.matrix(m)
   list(X = X, coef = coef(m), vcov = vcov(m))

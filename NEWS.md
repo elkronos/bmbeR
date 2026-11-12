@@ -1,3 +1,74 @@
+# bmbeR 2.1.0
+
+Fixes from a second review of 2.0.0, each with a regression test.
+
+## Bug fixes
+
+* Power priors from `empirical_bayes_priors(method = "power")` placed the
+  intercept prior at the historical data's predictor means, but rstanarm
+  applies it at the analysed data's means. With different means the
+  intercept was badly wrong. `fit_model_with_prior()` and
+  `prior_predictive_check()` now re-express the intercept prior at the means
+  of the data being fitted.
+* `evaluate_model_performance()` ignored offsets in test data, so every metric
+  was wrong for models with an exposure. Formula offsets are now computed from
+  the test data, and the new `offset` argument supplies offsets for models
+  fitted with `stan_glm(offset = )`.
+* Unit-information priors counted rows instead of Bernoulli trials for
+  `cbind(successes, failures)` responses, making the prior as informative as
+  several observations rather than one. `n` is now the number of trials, or
+  the sum of the new `weights` argument.
+* Formulas with `.` and formulas that use variables from their environment
+  (e.g. `poly(x, k)`) are accepted.
+* `weights`, `subset`, `offset` and `na.action` passed through `...` are
+  evaluated inside the data, as in `stan_glm()`, so `weights = w` works. The
+  stored model call refers to the data by name instead of containing a copy
+  of it.
+* `sensitivity_analysis()` validates every configuration before fitting,
+  keeps going when one configuration fails (recording the error in
+  `$errors`), and reports the number of observations with high Pareto k.
+* R's random number stream is no longer changed by `fit_model_with_prior()`,
+  `prior_predictive_check()`, `evaluate_model_performance()`,
+  `sensitivity_analysis()` or `workflow_report()`.
+* `compare_performance()` checks that models were scored on the same test
+  observations, not only the same number of them.
+* `prior_predictive_check()` rejects flat priors, validates `chains`, `iter`
+  and `plausible_range`, and summarises sampler warnings instead of hiding
+  them.
+* `workflow_report()`: held-out performance is marked `check` when interval
+  coverage is off by more than two standard errors; rstanarm's defaults are
+  recognised for intercept-only models; binary outcomes get a binned
+  calibration check and a meaningful prior predictive summary; QR fits get an
+  accurate message about prior sensitivity.
+* `check_convergence()` no longer fails parameters with constant draws,
+  validates its thresholds, and reports the R-hat of the failing parameters.
+* `empirical_bayes_priors()` reports separation and other warnings from the
+  maximum-likelihood fit.
+* Smaller fixes: rstanarm priors with default arguments (e.g.
+  `rstanarm::normal()`) are translated; Student-t `df` lengths are checked;
+  legacy exponential priors given by `scale` keep it; family names are looked
+  up in the caller's environment; `seed` is validated; `add_distribution()`
+  rejects a missing name; `evaluate_model_performance(formula = )` must match
+  the model.
+
+## New features
+
+* `prior_table()` returns the priors a fit used, after autoscaling.
+* `sensitivity_analysis(cv = "kfold")` compares configurations by K-fold
+  cross-validation.
+* `as.data.frame()` methods for convergence, sensitivity and prior check
+  results.
+* `format(report, type = "markdown")`, and knitting a report in R Markdown or
+  Quarto, give a Markdown checklist.
+* `workflow_report()` gains a `seed` argument.
+* `citation("bmbeR")`.
+
+## Internal
+
+* withr moved from Suggests to Imports.
+* GitHub Actions are pinned to commit SHAs and kept current by Dependabot; a
+  test-coverage workflow was added.
+
 # bmbeR 2.0.0
 
 A rewrite following an adversarial review of version 1.01; see `REVIEW.md`

@@ -21,6 +21,14 @@
 #' @param chains,iter MCMC settings for sampling from the prior (defaults are
 #'   smaller than for posterior fitting because the prior is simple).
 #' @param ... Further arguments passed to [rstanarm::stan_glm()].
+#'   `weights`, `subset` and `offset` are evaluated inside `data`.
+#'
+#' @details
+#' All priors must be proper: an improper flat prior has no prior predictive
+#' distribution, so `prior_spec("flat")` components are rejected. Warnings
+#' from sampling the prior (e.g. divergences) are summarised in a single
+#' warning because they make the simulated data sets less trustworthy.
+#' R's random number stream is left unchanged.
 #'
 #' @return An object of class `bmb_prior_check` with elements `yrep` (a
 #'   draws x observations matrix), `y` (the observed outcome, for scale),
@@ -46,25 +54,47 @@ prior_predictive_check <- function(data, formula, family = gaussian(),
                                    prior_config = NULL, ndraws = 200,
                                    plausible_range = NULL,
                                    chains = 2, iter = 1000, seed = 1234, ...) {
+  env <- parent.frame()
+  data_expr <- substitute(data)
+  dots <- capture_dots(...)
   validate_data_formula(data, formula)
   validate_positive_integer(ndraws, "ndraws")
-  family <- normalize_family(family)
+  validate_positive_integer(chains, "chains")
+  validate_positive_integer(iter, "iter")
+  validate_seed(seed)
+  family <- normalize_family(family, env)
   y <- get_response(formula, data)
   check_response_family(y, family)
   if (!is.null(plausible_range)) {
     if (!is.numeric(plausible_range) || length(plausible_range) != 2L ||
-        plausible_range[1] >= plausible_range[2]) {
+        anyNA(plausible_range) || plausible_range[1] >= plausible_range[2]) {
       stop("`plausible_range` must be c(lower, upper) with lower < upper.", call. = FALSE)
     }
   }
-  cfg <- as_prior_config(prior_config)
-  check_prior_terms(cfg, formula, data)
-  fit <- suppressWarnings(
+  cfg <- prepare_prior_config(as_prior_config(prior_config), formula, data)
+  flat <- names(Filter(function(p) !is.null(p) && identical(p$type, "flat"), cfg[c("intercept", "slope", "aux")]))
+  if (length(flat) > 0L) {
+    stop(sprintf(paste0("Prior predictive checks need proper priors, but the %s prior is flat. ",
+                        "Specify a proper prior or keep rstanarm's default (NULL)."),
+                 paste(flat, collapse = " and ")), call. = FALSE)
+  }
+  sampler_warnings <- character()
+  fit <- withCallingHandlers(
     run_stan_glm(data, formula, family, cfg, chains = chains, iter = iter,
-                 seed = seed, prior_PD = TRUE, ...)
+                 seed = seed, dots = dots, data_expr = data_expr, env = env,
+                 extra = list(prior_PD = TRUE)),
+    warning = function(w) {
+      sampler_warnings <<- c(sampler_warnings, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
   )
+  if (length(sampler_warnings) > 0L) {
+    warning("Sampling from the prior produced warnings, so the simulated data sets may be ",
+            "unreliable:\n  - ", paste(unique(trimws(sampler_warnings)), collapse = "\n  - "),
+            call. = FALSE)
+  }
   n_avail <- nrow(as.matrix(fit))
-  yrep <- rstanarm::posterior_predict(fit, draws = min(ndraws, n_avail), seed = seed)
+  yrep <- preserve_seed(rstanarm::posterior_predict(fit, draws = min(ndraws, n_avail), seed = seed))
 
   binary <- family$family == "binomial" && is_binary_outcome(y)
   y_num <- if (is.matrix(y)) y[, 1L] else if (binary) binary_to_01(y) else as.numeric(y)
@@ -78,7 +108,7 @@ prior_predictive_check <- function(data, formula, family = gaussian(),
   )
   if (family$family == "binomial") {
     # Prior predictive success probabilities for each observation.
-    pprob <- rstanarm::posterior_epred(fit, draws = nrow(yrep))
+    pprob <- preserve_seed(rstanarm::posterior_epred(fit, draws = nrow(yrep)))
     summ$share_extreme <- mean(pprob < 0.05 | pprob > 0.95)
     prop <- if (is.matrix(y)) rowMeans(yrep_prop) else rowMeans(yrep)
     summ$proportion_quantiles <- stats::quantile(prop, c(0.05, 0.5, 0.95))
@@ -97,15 +127,23 @@ prior_predictive_check <- function(data, formula, family = gaussian(),
 }
 
 #' @export
+as.data.frame.bmb_prior_check <- function(x, ...) {
+  vals <- unlist(x$summary)
+  data.frame(statistic = names(vals), value = unname(vals), stringsAsFactors = FALSE)
+}
+
+#' @export
 print.bmb_prior_check <- function(x, ...) {
   s <- x$summary
   cat(sprintf("<bmb_prior_check> %d simulated data sets of %d observations (%s family)\n",
               nrow(x$yrep), ncol(x$yrep), x$family))
   cat(sprintf("  Observed outcome range     : [%s, %s]\n",
               signif(s$observed_range[1], 4), signif(s$observed_range[2], 4)))
-  q <- signif(s$yrep_quantiles, 4)
-  cat(sprintf("  Prior predictive quantiles : 1%%: %s | 5%%: %s | 50%%: %s | 95%%: %s | 99%%: %s\n",
-              q[1], q[2], q[3], q[4], q[5]))
+  if (!isTRUE(x$binary)) {
+    q <- signif(s$yrep_quantiles, 4)
+    cat(sprintf("  Prior predictive quantiles : 1%%: %s | 5%%: %s | 50%%: %s | 95%%: %s | 99%%: %s\n",
+                q[1], q[2], q[3], q[4], q[5]))
+  }
   if (!is.null(s$share_extreme)) {
     pq <- signif(s$proportion_quantiles, 3)
     cat(sprintf("  Simulated success proportion (5%%, 50%%, 95%%): %s, %s, %s\n", pq[1], pq[2], pq[3]))

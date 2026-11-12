@@ -39,9 +39,11 @@ values outside it is reported.}
 \item{chains, iter}{MCMC settings for sampling from the prior (defaults are
 smaller than for posterior fitting because the prior is simple).}
 
-\item{seed}{Random seed passed to Stan, for reproducibility.}
+\item{seed}{Random seed passed to Stan, for reproducibility (a single
+non-negative whole number).}
 
-\item{...}{Further arguments passed to \code{\link[rstanarm:stan_glm]{rstanarm::stan_glm()}}.}
+\item{...}{Further arguments passed to \code{\link[rstanarm:stan_glm]{rstanarm::stan_glm()}}.
+\code{weights}, \code{subset} and \code{offset} are evaluated inside \code{data}.}
 }
 \value{
 An object of class \code{bmb_prior_check} with elements \code{yrep} (a
@@ -63,6 +65,12 @@ success probabilities that are extreme (below 5\% or above 95\%). Wide
 "non-informative" priors on the logit scale put most of their mass on such
 extremes, i.e. they claim outcomes are nearly deterministic, which is
 rarely intended (Gelman et al., 2020).
+
+All priors must be proper: an improper flat prior has no prior predictive
+distribution, so \code{prior_spec("flat")} components are rejected. Warnings
+from sampling the prior (e.g. divergences) are summarised in a single
+warning because they make the simulated data sets less trustworthy.
+R's random number stream is left unchanged.
 }
 \examples{
 \donttest{
