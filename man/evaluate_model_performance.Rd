@@ -43,14 +43,16 @@ was fitted with the \code{offset} argument of \code{\link[rstanarm:stan_glm]{rst
 }
 \value{
 An object of class \code{bmb_performance}: a named list of metrics
-(see Details) with attributes \code{type} and \code{n}. Access metrics with \code{$},
-e.g. \code{perf$RMSE}, or convert with \code{as.data.frame()}.
+(see Details) with attributes \code{type}, \code{n}, \code{prob}, \code{threshold} and
+\code{elpd_pointwise} (the per-observation ELPD used by
+\code{\link[=compare_performance]{compare_performance()}}). Access metrics with \code{$}, e.g. \code{perf$RMSE}, or
+convert with \code{as.data.frame()}.
 }
 \description{
 Scores a fitted model's predictions for new data using the full posterior
 predictive distribution. Proper scoring rules (Gneiting & Raftery, 2007)
-reward both accuracy and honest uncertainty, and are reported alongside
-the familiar point-prediction metrics.
+reward accuracy and calibrated uncertainty together; they are reported
+alongside the familiar point-prediction metrics.
 }
 \details{
 Always reported:

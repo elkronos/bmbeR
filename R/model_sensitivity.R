@@ -347,10 +347,10 @@ plot.bmb_prior_sensitivity <- function(x, ...) {
 #'
 #' Refits the model under each of several prior configurations and compares
 #' (1) the posterior of every parameter with a reference configuration and
-#' (2) out-of-sample predictive performance by PSIS-LOO (Vehtari et al.,
-#' 2017), including the standard error of each difference. This is the
-#' "global" complement to [prior_sensitivity()], which is local and needs no
-#' refitting.
+#' (2) out-of-sample predictive performance by PSIS-LOO or K-fold
+#' cross-validation (Vehtari et al., 2017), with the standard error of each
+#' difference. This is the global complement to [prior_sensitivity()], which
+#' is local and needs no refitting.
 #'
 #' A shift of `shift_sd` means the posterior mean under a configuration
 #' differs from the reference by that many reference posterior SDs;
@@ -359,7 +359,7 @@ plot.bmb_prior_sensitivity <- function(x, ...) {
 #'
 #' LOO compares predictive performance, not prior plausibility: a prior can
 #' change the estimate of a parameter substantially while barely changing
-#' predictions, so both parts of the output should be examined.
+#' predictions, so read both parts of the output.
 #'
 #' PSIS-LOO is unreliable when observations have high Pareto \eqn{\hat{k}};
 #' the number of such observations is reported for each configuration. Use
@@ -402,8 +402,9 @@ plot.bmb_prior_sensitivity <- function(x, ...) {
 #'
 #' @return An object of class `bmb_sensitivity` with elements `summary`
 #'   (posterior summaries by configuration and parameter), `comparison` (a
-#'   data frame of paired PSIS-LOO differences, as in [loo::loo_compare()],
-#'   with one row per configuration and the column `n_high_k`), `metric`
+#'   data frame of paired ELPD differences, as in [loo::loo_compare()], with
+#'   one row per configuration and the column `n_high_k`; `NULL` when
+#'   `cv = "none"`), `metric`
 #'   (named vector of the chosen estimate), `converged` (named logical), `loo`
 #'   (list of loo or kfold objects), `cv`, `errors` (named character vector of
 #'   failed configurations) and, if `keep_fits = TRUE`, `fits`. Use

@@ -1,9 +1,9 @@
 #' Diagnostic plots for MCMC draws
 #'
 #' Creates trace, rank, histogram, density and autocorrelation plots with
-#' bayesplot. Rank plots are the most sensitive visual check of mixing
-#' (Vehtari et al., 2021): with well-mixed chains each chain's rank histogram
-#' is approximately uniform.
+#' bayesplot. Vehtari et al. (2021) recommend rank plots over trace plots for
+#' checking mixing: with well-mixed chains each chain's rank histogram is
+#' approximately uniform.
 #'
 #' @param model_fit A `stanreg` or `stanfit` object fitted by MCMC.
 #' @param types Plot types: any of `"trace"`, `"rank"`, `"hist"`,
@@ -89,11 +89,10 @@ plot_posterior_distributions <- function(model_fit, prob = 0.95, prob_inner = 0.
 
 #' Compare each prior with its posterior
 #'
-#' Overlays the prior density that rstanarm actually used (after any
-#' autoscaling) on the posterior density of each parameter. A posterior that
-#' looks like its prior indicates the data carry little information about
-#' that parameter; a posterior squeezed against a region the prior considers
-#' implausible suggests prior-data conflict. Unlike
+#' Overlays the prior density that rstanarm used (after any autoscaling) on
+#' the posterior density of each parameter. A posterior that looks like its
+#' prior indicates the data carry little information about that parameter; a
+#' posterior in the tail of its prior suggests prior-data conflict. Unlike
 #' [rstanarm::posterior_vs_prior()], no refitting is needed.
 #'
 #' The intercept is shown at the predictor means, which is the parameter

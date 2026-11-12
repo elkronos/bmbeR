@@ -15,9 +15,9 @@
 #'
 #' `student_t_prior()` draws from the *location-scale* Student-t
 #' distribution, `mu + sigma * T` with `T ~ t(nu)`, which is the distribution
-#' that [rstanarm::student_t()] places on a coefficient. (Versions of bmbeR
+#' that [rstanarm::student_t()] places on a coefficient. Versions of bmbeR
 #' before 2.0.0 used a non-central t multiplied by `sigma`, whose mean is not
-#' `mu`; see `vignette("bmbeR")` and the design review.)
+#' `mu` (see `REVIEW.md` in the source repository).
 #'
 #' `binomial_prior()`, `poisson_prior()` and `bernoulli_prior()` generate
 #' discrete *data*. They are not valid priors for regression coefficients,

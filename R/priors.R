@@ -29,11 +29,12 @@ allowed_types <- list(
 #'   (coefficients only), `"exponential"` (auxiliary parameter only) or
 #'   `"flat"` (an improper uniform prior).
 #' @param location Prior location. For slopes, either a single value or one
-#'   value per coefficient.
+#'   value per coefficient. Ignored for `"exponential"` and `"flat"`.
 #' @param scale Prior scale (positive). For slopes, a single value or one per
 #'   coefficient.
-#' @param df Degrees of freedom for `"student_t"`.
-#' @param rate Rate for `"exponential"`.
+#' @param df Degrees of freedom for `"student_t"`: a single value or, for
+#'   slopes, one per coefficient.
+#' @param rate Rate for `"exponential"`; the prior mean is `1 / rate`.
 #' @param autoscale Logical. If `TRUE`, rstanarm rescales the prior using the
 #'   standard deviations of the outcome and predictors.
 #'
@@ -271,7 +272,7 @@ prior_args_from_config <- function(cfg) {
 # =============================================================================
 
 # Returns a data frame with one row per parameter carrying the prior that
-# rstanarm actually used. The intercept row refers to the intercept at the
+# rstanarm used. The intercept row refers to the intercept at the
 # predictor means (the parameter the prior is placed on).
 resolve_priors <- function(fit) {
   check_stanreg(fit, glm_only = TRUE)

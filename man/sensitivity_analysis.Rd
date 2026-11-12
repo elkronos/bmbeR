@@ -80,8 +80,9 @@ refer to columns of \code{data}.}
 \value{
 An object of class \code{bmb_sensitivity} with elements \code{summary}
 (posterior summaries by configuration and parameter), \code{comparison} (a
-data frame of paired PSIS-LOO differences, as in \code{\link[loo:loo_compare]{loo::loo_compare()}},
-with one row per configuration and the column \code{n_high_k}), \code{metric}
+data frame of paired ELPD differences, as in \code{\link[loo:loo_compare]{loo::loo_compare()}}, with
+one row per configuration and the column \code{n_high_k}; \code{NULL} when
+\code{cv = "none"}), \code{metric}
 (named vector of the chosen estimate), \code{converged} (named logical), \code{loo}
 (list of loo or kfold objects), \code{cv}, \code{errors} (named character vector of
 failed configurations) and, if \code{keep_fits = TRUE}, \code{fits}. Use
@@ -90,10 +91,10 @@ failed configurations) and, if \code{keep_fits = TRUE}, \code{fits}. Use
 \description{
 Refits the model under each of several prior configurations and compares
 (1) the posterior of every parameter with a reference configuration and
-(2) out-of-sample predictive performance by PSIS-LOO (Vehtari et al.,
-2017), including the standard error of each difference. This is the
-"global" complement to \code{\link[=prior_sensitivity]{prior_sensitivity()}}, which is local and needs no
-refitting.
+(2) out-of-sample predictive performance by PSIS-LOO or K-fold
+cross-validation (Vehtari et al., 2017), with the standard error of each
+difference. This is the global complement to \code{\link[=prior_sensitivity]{prior_sensitivity()}}, which
+is local and needs no refitting.
 }
 \details{
 A shift of \code{shift_sd} means the posterior mean under a configuration
@@ -103,7 +104,7 @@ are flagged (a heuristic; choose it for your context).
 
 LOO compares predictive performance, not prior plausibility: a prior can
 change the estimate of a parameter substantially while barely changing
-predictions, so both parts of the output should be examined.
+predictions, so read both parts of the output.
 
 PSIS-LOO is unreliable when observations have high Pareto \eqn{\hat{k}};
 the number of such observations is reported for each configuration. Use

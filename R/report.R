@@ -12,16 +12,17 @@
 #' complete the checklist.
 #'
 #' Posterior predictive p-values use the mean, SD, minimum and maximum of the
-#' outcome. For binary outcomes the mean is reproduced by any model with an
-#' intercept, so a binned calibration statistic is used as well: observations
-#' are grouped by their fitted probability and the squared standardised
-#' differences between observed and expected successes are summed (a posterior
+#' outcome. For binary outcomes they use the mean and, with at least 20
+#' observations, a binned calibration statistic, because any model with an
+#' intercept reproduces the mean. The calibration statistic groups
+#' observations by fitted probability and sums the squared standardised
+#' differences between observed and expected successes, a posterior
 #' predictive version of the Hosmer-Lemeshow statistic; only large values
-#' indicate misfit).
+#' indicate misfit.
 #'
 #' Held-out performance is marked `check` when the coverage of the predictive
-#' intervals differs from `prob` of [evaluate_model_performance()] by more
-#' than two binomial standard errors.
+#' intervals differs from their nominal level (`prob` in
+#' [evaluate_model_performance()]) by more than two binomial standard errors.
 #'
 #' Use `format(report, type = "markdown")` (or knit the object in R Markdown
 #' or Quarto) for a Markdown version of the checklist.
@@ -41,7 +42,7 @@
 #' @return An object of class `bmb_report` with elements `items` (a data
 #'   frame with one row per checklist item: `item`, `status`, `detail`),
 #'   `posterior` (posterior summary table), `priors`, `convergence`, `loo`,
-#'   `ppc` and `sensitivity`.
+#'   `ppc`, `sensitivity` and `prob`.
 #' @references
 #' Kruschke, J. K. (2021). Bayesian analysis reporting guidelines. *Nature
 #' Human Behaviour*, 5, 1282–1291. \doi{10.1038/s41562-021-01177-7}

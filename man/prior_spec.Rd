@@ -19,14 +19,15 @@ prior_spec(
 \code{"flat"} (an improper uniform prior).}
 
 \item{location}{Prior location. For slopes, either a single value or one
-value per coefficient.}
+value per coefficient. Ignored for \code{"exponential"} and \code{"flat"}.}
 
 \item{scale}{Prior scale (positive). For slopes, a single value or one per
 coefficient.}
 
-\item{df}{Degrees of freedom for \code{"student_t"}.}
+\item{df}{Degrees of freedom for \code{"student_t"}: a single value or, for
+slopes, one per coefficient.}
 
-\item{rate}{Rate for \code{"exponential"}.}
+\item{rate}{Rate for \code{"exponential"}; the prior mean is \code{1 / rate}.}
 
 \item{autoscale}{Logical. If \code{TRUE}, rstanarm rescales the prior using the
 standard deviations of the outcome and predictors.}

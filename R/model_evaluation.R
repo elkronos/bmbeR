@@ -2,8 +2,8 @@
 #'
 #' Scores a fitted model's predictions for new data using the full posterior
 #' predictive distribution. Proper scoring rules (Gneiting & Raftery, 2007)
-#' reward both accuracy and honest uncertainty, and are reported alongside
-#' the familiar point-prediction metrics.
+#' reward accuracy and calibrated uncertainty together; they are reported
+#' alongside the familiar point-prediction metrics.
 #'
 #' @details
 #' Always reported:
@@ -56,8 +56,10 @@
 #'   was fitted with the `offset` argument of [rstanarm::stan_glm()].
 #'
 #' @return An object of class `bmb_performance`: a named list of metrics
-#'   (see Details) with attributes `type` and `n`. Access metrics with `$`,
-#'   e.g. `perf$RMSE`, or convert with `as.data.frame()`.
+#'   (see Details) with attributes `type`, `n`, `prob`, `threshold` and
+#'   `elpd_pointwise` (the per-observation ELPD used by
+#'   [compare_performance()]). Access metrics with `$`, e.g. `perf$RMSE`, or
+#'   convert with `as.data.frame()`.
 #' @references
 #' Gneiting, T., & Raftery, A. E. (2007). Strictly proper scoring rules,
 #' prediction, and estimation. *JASA*, 102(477), 359–378.
@@ -196,7 +198,8 @@ test_offset <- function(fit, data_test, offset = NULL) {
 #' models evaluated with [evaluate_model_performance()] on the *same* test
 #' observations. Differences are paired by observation, and their standard
 #' errors are computed from the per-observation differences, as in
-#' [loo::loo_compare()].
+#' [loo::loo_compare()]. It stops if the models were not scored on the same
+#' test observations.
 #'
 #' @param ... Named `bmb_performance` objects, or a single named list of them.
 #' @return A data frame sorted from best to worst with columns `model`,

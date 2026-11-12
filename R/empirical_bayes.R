@@ -1,10 +1,10 @@
 #' Data-informed priors: unit-information, empirical Bayes and power priors
 #'
 #' Derives priors for the intercept and regression coefficients of a
-#' generalised linear model from data, using one of three published methods
-#' that avoid the "double-dipping" problem of centring a tight prior on
-#' estimates from the same data that will be used to fit the model (which
-#' counts the data twice and produces overconfident posteriors).
+#' generalised linear model from data, with one of three published methods.
+#' Each avoids "double-dipping": centring a tight prior on estimates from the
+#' same data that will be fitted counts the data twice and makes the
+#' posterior overconfident.
 #'
 #' @details
 #' A maximum-likelihood GLM with the same formula and family is fitted first.
@@ -67,8 +67,8 @@
 #' @return A [prior_config()] object (class `bmb_prior_config`) that can be
 #'   passed to [fit_model_with_prior()], with attributes `table` (a data frame
 #'   of estimates, standard errors and prior parameters), `method`, `terms`,
-#'   `n` (the effective sample size used by the unit-information prior) and,
-#'   for `"eb_shrinkage"`, `tau`.
+#'   `n` (the sample size used by the unit-information prior), for
+#'   `"eb_shrinkage"` `tau`, and for `"power"` `a0`.
 #'
 #' @references
 #' Kass, R. E., & Wasserman, L. (1995). A reference Bayesian test for nested

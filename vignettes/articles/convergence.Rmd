@@ -26,7 +26,7 @@ Stan developers and Vehtari et al. (2021).
 | E-BFMI | ≥ 0.3 per chain | The momentum resampling explores the energy distribution poorly (often heavy tails). |
 | Max tree depth hits | reported only | An efficiency issue: the sampler needed very long trajectories. |
 
-Two changes from older practice matter. The traditional R-hat threshold of
+Two criteria differ from older practice. The traditional R-hat threshold of
 1.1 misses many failures that 1.01 catches, and the rank-normalised version
 also detects chains that differ in scale or have heavy tails. Tail-ESS was
 introduced because a good bulk-ESS can hide unreliable interval endpoints.
@@ -77,12 +77,12 @@ each in its own direction:
 plot(attr(fit_flat, "bmb_convergence"), type = "trace")
 ```
 
-Notice that `fit_model_with_prior()` warned but still returned the fit, so
-it can be inspected. Pass `on_nonconvergence = "error"` to stop instead.
+`fit_model_with_prior()` warned but still returned the fit, so it can be
+inspected. Pass `on_nonconvergence = "error"` to stop instead.
 
 A weakly informative prior makes the posterior proper and the computation
-easy. It also encodes something we genuinely believe: coefficients of a
-logistic regression are not infinite.
+easy. It also states something nobody doubts, that the coefficients of a
+logistic regression are finite.
 
 ```{r}
 fit_wi <- fit_model_with_prior(sep, y ~ x, family = binomial(), refresh = 0)
@@ -102,8 +102,8 @@ fit_short <- suppressWarnings(
 attr(fit_short, "bmb_convergence")
 ```
 
-The remedy is simply to run longer chains (the default `iter = 2000` is
-ample for most regression models).
+The remedy is longer chains; the default `iter = 2000` is ample for most
+regression models.
 
 ## Using the diagnostics in code
 

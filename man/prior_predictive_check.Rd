@@ -48,16 +48,17 @@ non-negative whole number).}
 \value{
 An object of class \code{bmb_prior_check} with elements \code{yrep} (a
 draws x observations matrix), \code{y} (the observed outcome, for scale),
-\code{summary} (a list of summary statistics), \code{fit} (the prior-only model)
-and \code{binary}. Has \code{print()} and \code{plot()} methods.
+\code{summary} (a list of summary statistics), \code{fit} (the prior-only model),
+\code{binary}, \code{family} and \code{prior_summary}. Has \code{print()}, \code{plot()} and
+\code{as.data.frame()} methods.
 }
 \description{
 Simulates outcomes from the prior predictive distribution, i.e. data the
 model considers plausible \emph{before} seeing the observed outcomes, by
 fitting the model with \code{prior_PD = TRUE} (the likelihood is ignored).
-Comparing these simulations with what is substantively plausible is the
-recommended way to check that priors encode sensible assumptions (Gabry
-et al., 2019; Gelman et al., 2020).
+Comparing these simulations with what is substantively plausible shows
+whether the priors encode sensible assumptions (Gabry et al., 2019;
+Gelman et al., 2020).
 }
 \details{
 For binomial models the check reports the share of prior predictive
@@ -70,7 +71,9 @@ All priors must be proper: an improper flat prior has no prior predictive
 distribution, so \code{prior_spec("flat")} components are rejected. Warnings
 from sampling the prior (e.g. divergences) are summarised in a single
 warning because they make the simulated data sets less trustworthy.
-R's random number stream is left unchanged.
+Intercept priors from \code{\link[=empirical_bayes_priors]{empirical_bayes_priors()}} are re-expressed at the
+predictor means of \code{data}, as in \code{\link[=fit_model_with_prior]{fit_model_with_prior()}}. R's random
+number stream is left unchanged.
 }
 \examples{
 \donttest{
