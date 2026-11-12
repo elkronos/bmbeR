@@ -217,21 +217,21 @@ that the data can override them if prior and data turn out to conflict
 ## References
 
 Efron, B., & Morris, C. (1973). Stein's estimation rule and its
-competitors—an empirical Bayes approach. *JASA*, 68(341), 117–130.
+competitors—an empirical Bayes approach. *JASA*, 68(341), 117–130. <https://doi.org/10.1080/01621459.1973.10481350>
 
 Ibrahim, J. G., & Chen, M.-H. (2000). Power prior distributions for
-regression models. *Statistical Science*, 15(1), 46–60.
+regression models. *Statistical Science*, 15(1), 46–60. <https://doi.org/10.1214/ss/1009212673>
 
 James, W., & Stein, C. (1961). Estimation with quadratic loss. *Proceedings
-of the Fourth Berkeley Symposium*, 1, 361–379.
+of the Fourth Berkeley Symposium*, 1, 361–379. <https://projecteuclid.org/euclid.bsmsp/1200512173>
 
 Kass, R. E., & Wasserman, L. (1995). A reference Bayesian test for nested
 hypotheses and its relationship to the Schwarz criterion. *JASA*, 90(431),
-928–934.
+928–934. <https://doi.org/10.1080/01621459.1995.10476592>
 
 Morris, C. N. (1983). Parametric empirical Bayes inference: Theory and
-applications. *JASA*, 78(381), 47–55.
+applications. *JASA*, 78(381), 47–55. <https://doi.org/10.1080/01621459.1983.10477920>
 
 O'Hagan, A., & Pericchi, L. (2012). Bayesian heavy-tailed models and conflict
 resolution: A review. *Brazilian Journal of Probability and Statistics*,
-26(4), 372–401.
+26(4), 372–401. <https://doi.org/10.1214/11-BJPS164>

@@ -155,20 +155,20 @@ These are deliberate scope limits or open questions, not known bugs:
 
 ## References
 
-Betancourt, M. (2017). A conceptual introduction to Hamiltonian Monte Carlo. *arXiv:1701.02434*.
+Betancourt, M. (2017). A conceptual introduction to Hamiltonian Monte Carlo. *arXiv:1701.02434*. <https://doi.org/10.48550/arXiv.1701.02434>
 
-Box, G. E. P. (1980). Sampling and Bayes' inference in scientific modelling and robustness. *JRSS A*, 143(4), 383–430.
+Box, G. E. P. (1980). Sampling and Bayes' inference in scientific modelling and robustness. *JRSS A*, 143(4), 383–430. <https://doi.org/10.2307/2982063>
 
-Gelman, A., Vehtari, A., Simpson, D., et al. (2020). Bayesian workflow. *arXiv:2011.01808*.
+Gelman, A., Vehtari, A., Simpson, D., et al. (2020). Bayesian workflow. *arXiv:2011.01808*. <https://doi.org/10.48550/arXiv.2011.01808>
 
-Ibrahim, J. G., & Chen, M.-H. (2000). Power prior distributions for regression models. *Statistical Science*, 15(1), 46–60.
+Ibrahim, J. G., & Chen, M.-H. (2000). Power prior distributions for regression models. *Statistical Science*, 15(1), 46–60. <https://doi.org/10.1214/ss/1009212673>
 
-Kallioinen, N., Paananen, T., Bürkner, P.-C., & Vehtari, A. (2023). Detecting and diagnosing prior and likelihood sensitivity with power-scaling. *Statistics and Computing*, 34, 57.
+Kallioinen, N., Paananen, T., Bürkner, P.-C., & Vehtari, A. (2023). Detecting and diagnosing prior and likelihood sensitivity with power-scaling. *Statistics and Computing*, 34, 57. <https://doi.org/10.1007/s11222-023-10366-5>
 
-Kass, R. E., & Wasserman, L. (1995). A reference Bayesian test for nested hypotheses and its relationship to the Schwarz criterion. *JASA*, 90(431), 928–934.
+Kass, R. E., & Wasserman, L. (1995). A reference Bayesian test for nested hypotheses and its relationship to the Schwarz criterion. *JASA*, 90(431), 928–934. <https://doi.org/10.1080/01621459.1995.10476592>
 
-Kruschke, J. K. (2021). Bayesian analysis reporting guidelines. *Nature Human Behaviour*, 5, 1282–1291.
+Kruschke, J. K. (2021). Bayesian analysis reporting guidelines. *Nature Human Behaviour*, 5, 1282–1291. <https://doi.org/10.1038/s41562-021-01177-7>
 
-Morris, C. N. (1983). Parametric empirical Bayes inference: Theory and applications. *JASA*, 78(381), 47–55.
+Morris, C. N. (1983). Parametric empirical Bayes inference: Theory and applications. *JASA*, 78(381), 47–55. <https://doi.org/10.1080/01621459.1983.10477920>
 
-Vehtari, A., Gelman, A., Simpson, D., Carpenter, B., & Bürkner, P.-C. (2021). Rank-normalization, folding, and localization: An improved R-hat for assessing convergence of MCMC. *Bayesian Analysis*, 16(2), 667–718.
+Vehtari, A., Gelman, A., Simpson, D., Carpenter, B., & Bürkner, P.-C. (2021). Rank-normalization, folding, and localization: An improved R-hat for assessing convergence of MCMC. *Bayesian Analysis*, 16(2), 667–718. <https://doi.org/10.1214/20-BA1221>

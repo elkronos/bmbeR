@@ -91,6 +91,7 @@ for assessing convergence of MCMC. \emph{Bayesian Analysis}, 16(2), 667–718.
 
 Betancourt, M. (2017). A conceptual introduction to Hamiltonian Monte
 Carlo. \emph{arXiv:1701.02434}.
+\doi{10.48550/arXiv.1701.02434}
 }
 \seealso{
 \code{\link[=generate_plot]{generate_plot()}} for more diagnostic plots.

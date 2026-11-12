@@ -125,20 +125,20 @@ lists known limitations.
 
 ## References
 
-- Betancourt, M. (2017). A conceptual introduction to Hamiltonian Monte Carlo. *arXiv:1701.02434*.
-- Box, G. E. P. (1980). Sampling and Bayes' inference in scientific modelling and robustness. *JRSS A*, 143(4), 383–430.
-- Gabry, J., et al. (2019). Visualization in Bayesian workflow. *JRSS A*, 182(2), 389–402.
-- Gelman, A., et al. (2020). Bayesian workflow. *arXiv:2011.01808*.
-- Giordano, R., Broderick, T., & Jordan, M. I. (2018). Covariances, robustness, and variational Bayes. *JMLR*, 19(51), 1–49.
-- Gneiting, T., & Raftery, A. E. (2007). Strictly proper scoring rules, prediction, and estimation. *JASA*, 102(477), 359–378.
-- Ibrahim, J. G., & Chen, M.-H. (2000). Power prior distributions for regression models. *Statistical Science*, 15(1), 46–60.
-- Kallioinen, N., et al. (2023). Detecting and diagnosing prior and likelihood sensitivity with power-scaling. *Statistics and Computing*, 34, 57.
-- Kass, R. E., & Wasserman, L. (1995). A reference Bayesian test for nested hypotheses and its relationship to the Schwarz criterion. *JASA*, 90(431), 928–934.
-- Kruschke, J. K. (2021). Bayesian analysis reporting guidelines. *Nature Human Behaviour*, 5, 1282–1291.
-- Morris, C. N. (1983). Parametric empirical Bayes inference: Theory and applications. *JASA*, 78(381), 47–55.
-- Vehtari, A., Gelman, A., & Gabry, J. (2017). Practical Bayesian model evaluation using leave-one-out cross-validation and WAIC. *Statistics and Computing*, 27(5), 1413–1432.
-- Vehtari, A., et al. (2021). Rank-normalization, folding, and localization: An improved R-hat for assessing convergence of MCMC. *Bayesian Analysis*, 16(2), 667–718.
-- Vehtari, A., et al. (2024). Pareto smoothed importance sampling. *JMLR*, 25(72), 1–58.
+- Betancourt, M. (2017). A conceptual introduction to Hamiltonian Monte Carlo. *arXiv:1701.02434*. <https://doi.org/10.48550/arXiv.1701.02434>
+- Box, G. E. P. (1980). Sampling and Bayes' inference in scientific modelling and robustness. *JRSS A*, 143(4), 383–430. <https://doi.org/10.2307/2982063>
+- Gabry, J., et al. (2019). Visualization in Bayesian workflow. *JRSS A*, 182(2), 389–402. <https://doi.org/10.1111/rssa.12378>
+- Gelman, A., et al. (2020). Bayesian workflow. *arXiv:2011.01808*. <https://doi.org/10.48550/arXiv.2011.01808>
+- Giordano, R., Broderick, T., & Jordan, M. I. (2018). Covariances, robustness, and variational Bayes. *JMLR*, 19(51), 1–49. <https://jmlr.org/papers/v19/17-670.html>
+- Gneiting, T., & Raftery, A. E. (2007). Strictly proper scoring rules, prediction, and estimation. *JASA*, 102(477), 359–378. <https://doi.org/10.1198/016214506000001437>
+- Ibrahim, J. G., & Chen, M.-H. (2000). Power prior distributions for regression models. *Statistical Science*, 15(1), 46–60. <https://doi.org/10.1214/ss/1009212673>
+- Kallioinen, N., et al. (2023). Detecting and diagnosing prior and likelihood sensitivity with power-scaling. *Statistics and Computing*, 34, 57. <https://doi.org/10.1007/s11222-023-10366-5>
+- Kass, R. E., & Wasserman, L. (1995). A reference Bayesian test for nested hypotheses and its relationship to the Schwarz criterion. *JASA*, 90(431), 928–934. <https://doi.org/10.1080/01621459.1995.10476592>
+- Kruschke, J. K. (2021). Bayesian analysis reporting guidelines. *Nature Human Behaviour*, 5, 1282–1291. <https://doi.org/10.1038/s41562-021-01177-7>
+- Morris, C. N. (1983). Parametric empirical Bayes inference: Theory and applications. *JASA*, 78(381), 47–55. <https://doi.org/10.1080/01621459.1983.10477920>
+- Vehtari, A., Gelman, A., & Gabry, J. (2017). Practical Bayesian model evaluation using leave-one-out cross-validation and WAIC. *Statistics and Computing*, 27(5), 1413–1432. <https://doi.org/10.1007/s11222-016-9696-4>
+- Vehtari, A., et al. (2021). Rank-normalization, folding, and localization: An improved R-hat for assessing convergence of MCMC. *Bayesian Analysis*, 16(2), 667–718. <https://doi.org/10.1214/20-BA1221>
+- Vehtari, A., et al. (2024). Pareto smoothed importance sampling. *JMLR*, 25(72), 1–58. <https://jmlr.org/papers/v25/19-556.html>
 
 ## License
 

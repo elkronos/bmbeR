@@ -92,4 +92,5 @@ Human Behaviour}, 5, 1282–1291. \doi{10.1038/s41562-021-01177-7}
 Gelman, A., Meng, X.-L., & Stern, H. (1996). Posterior predictive
 assessment of model fitness via realized discrepancies. \emph{Statistica
 Sinica}, 6(4), 733–760.
+\url{https://www3.stat.sinica.edu.tw/statistica/j6n4/j6n41/j6n41.htm}
 }

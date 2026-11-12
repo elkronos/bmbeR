@@ -35,6 +35,7 @@ instead. To run chains in parallel, set \code{options(mc.cores = 4)} (or
 Gelman, A., Vehtari, A., Simpson, D., Margossian, C. C., Carpenter, B.,
 Yao, Y., Kennedy, L., Gabry, J., Bürkner, P.-C., & Modrák, M. (2020).
 Bayesian workflow. \emph{arXiv:2011.01808}.
+\doi{10.48550/arXiv.2011.01808}
 }
 \seealso{
 Useful links:

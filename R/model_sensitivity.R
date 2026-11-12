@@ -111,10 +111,12 @@
 #' Giordano, R., Broderick, T., & Jordan, M. I. (2018). Covariances,
 #' robustness, and variational Bayes. *Journal of Machine Learning Research*,
 #' 19(51), 1–49.
+#' \url{https://jmlr.org/papers/v19/17-670.html}
 #'
 #' Vehtari, A., Simpson, D., Gelman, A., Yao, Y., & Gabry, J. (2024).
 #' Pareto smoothed importance sampling. *Journal of Machine Learning
 #' Research*, 25(72), 1–58.
+#' \url{https://jmlr.org/papers/v25/19-556.html}
 #'
 #' Box, G. E. P. (1980). Sampling and Bayes' inference in scientific
 #' modelling and robustness. *JRSS A*, 143(4), 383–430.

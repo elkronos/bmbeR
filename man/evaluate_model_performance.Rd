@@ -113,6 +113,7 @@ prediction, and estimation. \emph{JASA}, 102(477), 359–378.
 
 Brier, G. W. (1950). Verification of forecasts expressed in terms of
 probability. \emph{Monthly Weather Review}, 78(1), 1–3.
+\doi{10.1175/1520-0493(1950)078<0001:VOFEIT>2.0.CO;2}
 
 Vehtari, A., Gelman, A., & Gabry, J. (2017). Practical Bayesian model
 evaluation using leave-one-out cross-validation and WAIC. \emph{Statistics and

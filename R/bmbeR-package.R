@@ -29,6 +29,7 @@
 #' Gelman, A., Vehtari, A., Simpson, D., Margossian, C. C., Carpenter, B.,
 #' Yao, Y., Kennedy, L., Gabry, J., Bürkner, P.-C., & Modrák, M. (2020).
 #' Bayesian workflow. *arXiv:2011.01808*.
+#' \doi{10.48550/arXiv.2011.01808}
 #'
 #' @keywords internal
 "_PACKAGE"

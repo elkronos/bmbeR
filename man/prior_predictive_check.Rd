@@ -91,4 +91,5 @@ Society: Series A}, 182(2), 389–402. \doi{10.1111/rssa.12378}
 
 Gelman, A., Vehtari, A., Simpson, D., et al. (2020). Bayesian workflow.
 \emph{arXiv:2011.01808}.
+\doi{10.48550/arXiv.2011.01808}
 }

@@ -224,22 +224,22 @@ parameters, though their numbers are on different scales.
 ## References
 
 Box, G. E. P. (1980). Sampling and Bayes' inference in scientific modelling
-and robustness. *JRSS A*, 143(4), 383–430.
+and robustness. *JRSS A*, 143(4), 383–430. <https://doi.org/10.2307/2982063>
 
 Giordano, R., Broderick, T., & Jordan, M. I. (2018). Covariances,
-robustness, and variational Bayes. *JMLR*, 19(51), 1–49.
+robustness, and variational Bayes. *JMLR*, 19(51), 1–49. <https://jmlr.org/papers/v19/17-670.html>
 
 Kallioinen, N., Paananen, T., Bürkner, P.-C., & Vehtari, A. (2023). Detecting
 and diagnosing prior and likelihood sensitivity with power-scaling.
-*Statistics and Computing*, 34, 57.
+*Statistics and Computing*, 34, 57. <https://doi.org/10.1007/s11222-023-10366-5>
 
 Schad, D. J., Betancourt, M., & Vasishth, S. (2021). Toward a principled
 Bayesian workflow in cognitive science. *Psychological Methods*, 26(1),
-103–126.
+103–126. <https://doi.org/10.1037/met0000275>
 
 Vehtari, A., Gelman, A., & Gabry, J. (2017). Practical Bayesian model
 evaluation using leave-one-out cross-validation and WAIC. *Statistics and
-Computing*, 27(5), 1413–1432.
+Computing*, 27(5), 1413–1432. <https://doi.org/10.1007/s11222-016-9696-4>
 
 Vehtari, A., Simpson, D., Gelman, A., Yao, Y., & Gabry, J. (2024). Pareto
-smoothed importance sampling. *JMLR*, 25(72), 1–58.
+smoothed importance sampling. *JMLR*, 25(72), 1–58. <https://jmlr.org/papers/v25/19-556.html>
