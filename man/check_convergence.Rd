@@ -46,8 +46,9 @@ An object of class \code{bmb_convergence}: a list with elements
 \code{converged} (logical), \code{parameters} (a data frame with R-hat, bulk-ESS
 and tail-ESS per parameter; also available with \code{as.data.frame()}),
 \code{sampler} (divergences, tree-depth hits,
-E-BFMI), \code{issues} (character vector of problems), \code{thresholds}, and the
-draws needed by the \code{plot()} method. Use \code{isTRUE(x$converged)} in code.
+E-BFMI), \code{issues} (problems that fail the check), \code{notes} (efficiency
+warnings and excluded parameters), \code{thresholds}, and the draws needed by
+the \code{plot()} method. Use \code{isTRUE(x$converged)} in code.
 }
 \description{
 Assesses whether the Markov chains of a fitted model can be trusted,

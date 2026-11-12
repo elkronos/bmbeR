@@ -46,15 +46,15 @@ family for all coefficients; use \code{type}.}
 A \code{\link[=prior_config]{prior_config()}} object (class \code{bmb_prior_config}) that can be
 passed to \code{\link[=fit_model_with_prior]{fit_model_with_prior()}}, with attributes \code{table} (a data frame
 of estimates, standard errors and prior parameters), \code{method}, \code{terms},
-\code{n} (the effective sample size used by the unit-information prior) and,
-for \code{"eb_shrinkage"}, \code{tau}.
+\code{n} (the sample size used by the unit-information prior), for
+\code{"eb_shrinkage"} \code{tau}, and for \code{"power"} \code{a0}.
 }
 \description{
 Derives priors for the intercept and regression coefficients of a
-generalised linear model from data, using one of three published methods
-that avoid the "double-dipping" problem of centring a tight prior on
-estimates from the same data that will be used to fit the model (which
-counts the data twice and produces overconfident posteriors).
+generalised linear model from data, with one of three published methods.
+Each avoids "double-dipping": centring a tight prior on estimates from the
+same data that will be fitted counts the data twice and makes the
+posterior overconfident.
 }
 \details{
 A maximum-likelihood GLM with the same formula and family is fitted first.

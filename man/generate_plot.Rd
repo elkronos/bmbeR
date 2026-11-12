@@ -29,9 +29,9 @@ Invisibly, a named list of ggplot objects (one per type).
 }
 \description{
 Creates trace, rank, histogram, density and autocorrelation plots with
-bayesplot. Rank plots are the most sensitive visual check of mixing
-(Vehtari et al., 2021): with well-mixed chains each chain's rank histogram
-is approximately uniform.
+bayesplot. Vehtari et al. (2021) recommend rank plots over trace plots for
+checking mixing: with well-mixed chains each chain's rank histogram is
+approximately uniform.
 }
 \examples{
 \donttest{

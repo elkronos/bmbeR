@@ -47,8 +47,9 @@ non-negative whole number).}
 \code{cores}, \code{refresh = 0}, \code{adapt_delta} or \code{weights}.}
 }
 \value{
-A \code{stanreg} object with attribute \code{bmb_convergence} (a
-\code{\link[=check_convergence]{check_convergence()}} result).
+A \code{stanreg} object with attributes \code{bmb_convergence} (a
+\code{\link[=check_convergence]{check_convergence()}} result) and \code{bmb_prior_config} (the priors used,
+after any re-expression of the intercept prior).
 }
 \description{
 Fits a generalised linear model with \code{\link[rstanarm:stan_glm]{rstanarm::stan_glm()}} using priors

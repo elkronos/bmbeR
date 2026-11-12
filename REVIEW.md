@@ -28,7 +28,7 @@ bayesplot and loo do not already do better.
 
 Version 2.0.0 is a rewrite that fixes every finding below, adds regression
 tests for each, and reorients the package around a gap in the existing
-ecosystem: a principled, prior-focused workflow for rstanarm models (see
+ecosystem: a prior-focused workflow for rstanarm models (see
 [What bmbeR adds](#what-bmber-adds-over-existing-packages)).
 
 ## Method
@@ -127,7 +127,7 @@ focuses on what the ecosystem lacks for rstanarm users:
 | Prior vs posterior plot without refitting | `rstanarm::posterior_vs_prior()` refits the model | `plot_prior_posterior()` uses the analytic prior |
 | Data-informed priors that avoid double-dipping | not packaged for rstanarm | unit-information, empirical Bayes shrinkage, power priors |
 | Held-out proper scoring (ELPD, CRPS, Brier, coverage) with paired model comparison | `loo` (in-sample LOO), `scoringRules` (manual) | `evaluate_model_performance()`, `compare_performance()` |
-| Modern convergence summary in one object | `posterior`, `rstan` (separate calls) | `check_convergence()` |
+| Current convergence diagnostics in one object | `posterior`, `rstan` (separate calls) | `check_convergence()` |
 | Reporting checklist | BARG (a paper) | `workflow_report()` assembles and audits each item |
 
 ## Remaining limitations

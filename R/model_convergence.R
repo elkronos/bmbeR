@@ -39,8 +39,9 @@
 #'   `converged` (logical), `parameters` (a data frame with R-hat, bulk-ESS
 #'   and tail-ESS per parameter; also available with `as.data.frame()`),
 #'   `sampler` (divergences, tree-depth hits,
-#'   E-BFMI), `issues` (character vector of problems), `thresholds`, and the
-#'   draws needed by the `plot()` method. Use `isTRUE(x$converged)` in code.
+#'   E-BFMI), `issues` (problems that fail the check), `notes` (efficiency
+#'   warnings and excluded parameters), `thresholds`, and the draws needed by
+#'   the `plot()` method. Use `isTRUE(x$converged)` in code.
 #'
 #' @references
 #' Vehtari, A., Gelman, A., Simpson, D., Carpenter, B., & Bürkner, P.-C.

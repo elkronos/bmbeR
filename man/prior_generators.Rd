@@ -66,9 +66,9 @@ number of draws as their first argument, \code{sample_size}.
 \details{
 \code{student_t_prior()} draws from the \emph{location-scale} Student-t
 distribution, \code{mu + sigma * T} with \code{T ~ t(nu)}, which is the distribution
-that \code{\link[rstanarm:priors]{rstanarm::student_t()}} places on a coefficient. (Versions of bmbeR
+that \code{\link[rstanarm:priors]{rstanarm::student_t()}} places on a coefficient. Versions of bmbeR
 before 2.0.0 used a non-central t multiplied by \code{sigma}, whose mean is not
-\code{mu}; see \code{vignette("bmbeR")} and the design review.)
+\code{mu} (see \code{REVIEW.md} in the source repository).
 
 \code{binomial_prior()}, \code{poisson_prior()} and \code{bernoulli_prior()} generate
 discrete \emph{data}. They are not valid priors for regression coefficients,

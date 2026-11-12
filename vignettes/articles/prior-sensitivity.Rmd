@@ -16,10 +16,10 @@ data(kidiq, package = "rstanarm")
 Every Bayesian analysis should ask *how much did the prior matter?* bmbeR
 offers two complementary answers:
 
-* `prior_sensitivity()`: **local** diagnostics computed from a single fit, with
+* `prior_sensitivity()`: local diagnostics computed from a single fit, with
   no refitting, by power-scaling the prior and the likelihood (Kallioinen et
   al., 2023).
-* `sensitivity_analysis()`: a **global** check that refits the model under
+* `sensitivity_analysis()`: a global check that refits the model under
   alternative priors and compares posteriors and predictive performance.
 
 ## Power-scaling
@@ -203,15 +203,23 @@ predictions.
 
 The [priorsense](https://github.com/n-kall/priorsense) package implements
 power-scaling sensitivity analysis (Kallioinen et al., 2023) for brms,
-cmdstanr, rstan, JAGS and NIMBLE models, and for draws with user-supplied
-log-prior and log-likelihood values. It measures sensitivity with the
-cumulative Jensen–Shannon distance. rstanarm fits do not store log-prior
-evaluations, so bmbeR reconstructs them from `rstanarm::prior_summary()`
-(including autoscaling and the centred intercept). It reports the mean and
-SD sensitivities, whose normal-model interpretations are given above, and
-the `conflict_z` statistic. The two approaches answer the same question and
-should agree on which parameters are sensitive, though their numerical
-scales differ.
+cmdstanr, rstan, JAGS and NIMBLE models, and for draws that carry log-prior
+and log-likelihood values. It measures sensitivity with the cumulative
+Jensen-Shannon distance. rstanarm fits do not store log-prior evaluations,
+so bmbeR rebuilds them from `rstanarm::prior_summary()`, including
+autoscaling and the centred intercept. bmbeR reports the mean and SD
+sensitivities, whose normal-model interpretations are given above, and the
+`conflict_z` statistic.
+
+To use priorsense's diagnostics and plots on an rstanarm fit, export it
+with `as_priorsense_draws()`:
+
+```{r, eval = requireNamespace("priorsense", quietly = TRUE)}
+priorsense::powerscale_sensitivity(as_priorsense_draws(fits[["informative, conflicts"]]))
+```
+
+The two packages answer the same question and should flag the same
+parameters, though their numbers are on different scales.
 
 ## References
 

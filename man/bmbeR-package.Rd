@@ -6,26 +6,28 @@
 \alias{bmbeR-package}
 \title{bmbeR: Prior-Focused Bayesian Model Building and Evaluation}
 \description{
-bmbeR wraps a principled Bayesian workflow (Gelman et al., 2020) around
-regression models fitted with \code{\link[rstanarm:stan_glm]{rstanarm::stan_glm()}}, with an emphasis on
-the part of the workflow that existing packages leave to the analyst: the
-prior.
+bmbeR takes regression models fitted with \code{\link[rstanarm:stan_glm]{rstanarm::stan_glm()}} through a
+Bayesian workflow (Gelman et al., 2020) with the prior at the centre: it
+helps you choose priors, check what they imply, measure their influence,
+and report them. The prior tools also accept \code{\link[rstanarm:stan_glmer]{rstanarm::stan_glmer()}}
+fits.
 
 The functions map onto the stages of the workflow:\tabular{ll}{
    Stage \tab Functions \cr
    Specify priors \tab \code{\link[=prior_spec]{prior_spec()}}, \code{\link[=prior_config]{prior_config()}}, \code{\link[=empirical_bayes_priors]{empirical_bayes_priors()}}, \code{\link[=prior_table]{prior_table()}} \cr
    Check priors before fitting \tab \code{\link[=prior_predictive_check]{prior_predictive_check()}} \cr
    Fit and check computation \tab \code{\link[=fit_model_with_prior]{fit_model_with_prior()}}, \code{\link[=check_convergence]{check_convergence()}} \cr
-   Quantify prior influence \tab \code{\link[=prior_sensitivity]{prior_sensitivity()}}, \code{\link[=sensitivity_analysis]{sensitivity_analysis()}}, \code{\link[=plot_prior_posterior]{plot_prior_posterior()}} \cr
+   Quantify prior influence \tab \code{\link[=prior_sensitivity]{prior_sensitivity()}}, \code{\link[=sensitivity_analysis]{sensitivity_analysis()}}, \code{\link[=plot_prior_posterior]{plot_prior_posterior()}}, \code{\link[=as_priorsense_draws]{as_priorsense_draws()}} \cr
    Visualise \tab \code{\link[=generate_plot]{generate_plot()}}, \code{\link[=plot_posterior_distributions]{plot_posterior_distributions()}} \cr
-   Evaluate predictions \tab \code{\link[=evaluate_model_performance]{evaluate_model_performance()}} \cr
+   Evaluate predictions \tab \code{\link[=evaluate_model_performance]{evaluate_model_performance()}}, \code{\link[=compare_performance]{compare_performance()}} \cr
    Report \tab \code{\link[=workflow_report]{workflow_report()}} \cr
 }
 }
 \section{Global options}{
 
 bmbeR never changes global state (options, R's random number stream, or
-the ggplot2 theme). Functions that simulate take a \code{seed} argument instead. To run chains in parallel, set \code{options(mc.cores = 4)} (or
+the ggplot2 theme). Functions that simulate take a \code{seed} argument
+instead. To run chains in parallel, set \code{options(mc.cores = 4)} (or
 \code{parallel::detectCores()}) yourself before fitting.
 }
 

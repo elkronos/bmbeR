@@ -49,8 +49,9 @@ rbind(
 
 On the original scale the prior is harmless. On the rescaled outcome the
 same prior says "the slope is almost certainly within a few units of zero",
-while the data say it is around −530. The prior wins: the model attributes
-everything to noise (look at `sigma`).
+while the data say it is around −530. The prior wins, and the model
+attributes the relationship to noise; the `sigma` panel below shows the
+inflated residual SD.
 
 ```{r}
 plot_prior_posterior(fit_mpg100)
@@ -63,7 +64,7 @@ around the wrong answer:
 attr(fit_mpg100, "bmb_convergence")$converged
 ```
 
-Two checks do catch it. **Before fitting**, a prior predictive check shows
+Two checks catch it. Before fitting, a prior predictive check shows
 that these priors expect outcomes centred on zero, far from any plausible
 value of `mpg * 100`:
 
@@ -72,11 +73,11 @@ prior_predictive_check(d, mpg100 ~ wt, prior_config = fixed,
                        plausible_range = c(500, 5000), refresh = 0)
 ```
 
-**After fitting**, `prior_sensitivity()` shows that the posterior is
+After fitting, `prior_sensitivity()` shows that the posterior is
 dominated by the prior. The posterior has found a self-consistent but wrong
 explanation: with a huge residual SD the data carry almost no information
 about the slope, so the local diagnosis is "weak likelihood", and the slope's
-posterior contraction is close to zero despite 32 observations with a strong
+posterior contraction is small despite 32 observations with a strong
 relationship.
 
 ```{r}
@@ -119,8 +120,8 @@ rstanarm::prior_summary(fit_default)
 
 A prior predictive check simulates outcomes from the priors alone (the
 likelihood is switched off) and asks whether they look like data that could
-plausibly have been observed (Gabry et al., 2019). It is the most direct way
-to see what a set of priors *means*.
+plausibly have been observed (Gabry et al., 2019). It shows what a set of
+priors implies in the units of the outcome.
 
 ### A continuous outcome
 
@@ -131,8 +132,9 @@ pc_default <- prior_predictive_check(kidiq, kid_score ~ mom_iq + mom_hs,
 pc_default
 ```
 
-rstanarm's defaults are deliberately weak: a noticeable share of simulated
-test scores are negative or above 200. That is often acceptable (weak priors
+rstanarm's defaults are deliberately weak:
+`r round(100 * pc_default$summary$share_outside)`% of simulated test scores
+are negative or above 200. That is often acceptable (weak priors
 let the data speak), but the check makes the trade-off visible. Priors based
 on what test scores can look like (see the *Get started* vignette) keep the
 simulations in a sensible range.
@@ -165,14 +167,18 @@ checks <- list(
 sapply(checks, function(x) x$summary$share_extreme)
 ```
 
+```{r, include = FALSE}
+extreme <- round(100 * sapply(checks, function(x) x$summary$share_extreme))
+```
+
 The numbers are the share of prior predictive success probabilities below
-5% or above 95%. The "vague" `normal(0, 10)` prior claims that almost every
-household's decision is a foregone conclusion. Even the weakly informative
-default does this for a large share of households, because the variances of
+5% or above 95%. The "vague" `normal(0, 10)` prior makes
+`r extreme[["normal(0, 10)"]]`% of households' decisions a foregone
+conclusion. The weakly informative default still does this for
+`r extreme[["rstanarm default"]]`%, because the variances of
 independent coefficient priors add up on the logit scale as predictors
-accumulate (Gelman et al., 2020). Tighter, autoscaled priors spread the
-probabilities more evenly, which matches what we actually believe before
-seeing the data.
+accumulate (Gelman et al., 2020). Tighter, autoscaled priors bring the
+share down to `r extreme[["normal(0, 0.5), autoscaled"]]`%.
 
 ```{r}
 plot(checks[["normal(0, 10)"]])

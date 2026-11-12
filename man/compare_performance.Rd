@@ -18,7 +18,8 @@ Compares the held-out expected log predictive density (ELPD) of several
 models evaluated with \code{\link[=evaluate_model_performance]{evaluate_model_performance()}} on the \emph{same} test
 observations. Differences are paired by observation, and their standard
 errors are computed from the per-observation differences, as in
-\code{\link[loo:loo_compare]{loo::loo_compare()}}.
+\code{\link[loo:loo_compare]{loo::loo_compare()}}. It stops if the models were not scored on the same
+test observations.
 }
 \examples{
 \donttest{

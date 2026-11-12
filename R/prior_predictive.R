@@ -3,9 +3,9 @@
 #' Simulates outcomes from the prior predictive distribution, i.e. data the
 #' model considers plausible *before* seeing the observed outcomes, by
 #' fitting the model with `prior_PD = TRUE` (the likelihood is ignored).
-#' Comparing these simulations with what is substantively plausible is the
-#' recommended way to check that priors encode sensible assumptions (Gabry
-#' et al., 2019; Gelman et al., 2020).
+#' Comparing these simulations with what is substantively plausible shows
+#' whether the priors encode sensible assumptions (Gabry et al., 2019;
+#' Gelman et al., 2020).
 #'
 #' For binomial models the check reports the share of prior predictive
 #' success probabilities that are extreme (below 5% or above 95%). Wide
@@ -28,12 +28,15 @@
 #' distribution, so `prior_spec("flat")` components are rejected. Warnings
 #' from sampling the prior (e.g. divergences) are summarised in a single
 #' warning because they make the simulated data sets less trustworthy.
-#' R's random number stream is left unchanged.
+#' Intercept priors from [empirical_bayes_priors()] are re-expressed at the
+#' predictor means of `data`, as in [fit_model_with_prior()]. R's random
+#' number stream is left unchanged.
 #'
 #' @return An object of class `bmb_prior_check` with elements `yrep` (a
 #'   draws x observations matrix), `y` (the observed outcome, for scale),
-#'   `summary` (a list of summary statistics), `fit` (the prior-only model)
-#'   and `binary`. Has `print()` and `plot()` methods.
+#'   `summary` (a list of summary statistics), `fit` (the prior-only model),
+#'   `binary`, `family` and `prior_summary`. Has `print()`, `plot()` and
+#'   `as.data.frame()` methods.
 #' @references
 #' Gabry, J., Simpson, D., Vehtari, A., Betancourt, M., & Gelman, A. (2019).
 #' Visualization in Bayesian workflow. *Journal of the Royal Statistical

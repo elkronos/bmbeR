@@ -57,8 +57,9 @@
 #' @param ... Further arguments passed to [rstanarm::stan_glm()], e.g.
 #'   `cores`, `refresh = 0`, `adapt_delta` or `weights`.
 #'
-#' @return A `stanreg` object with attribute `bmb_convergence` (a
-#'   [check_convergence()] result).
+#' @return A `stanreg` object with attributes `bmb_convergence` (a
+#'   [check_convergence()] result) and `bmb_prior_config` (the priors used,
+#'   after any re-expression of the intercept prior).
 #' @references
 #' Gelman, A., Jakulin, A., Pittau, M. G., & Su, Y.-S. (2008). A weakly
 #' informative default prior distribution for logistic and other regression

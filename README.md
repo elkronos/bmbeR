@@ -8,17 +8,13 @@
 **Prior-focused Bayesian model building and evaluation for
 [rstanarm](https://mc-stan.org/rstanarm/).**
 
-bmbeR takes a regression model through a principled Bayesian workflow
-(Gelman et al., 2020), concentrating on the part existing packages leave to
-the analyst: the prior. It helps you choose priors on a sensible scale, check
-what they imply before fitting, verify the computation, measure how much the
-prior influenced the result, evaluate predictions honestly, and report it all.
+bmbeR takes a regression model through a Bayesian workflow (Gelman et al.,
+2020) with the prior at the centre. It helps you choose priors on the scale
+of your data, check what they imply before fitting, verify the computation,
+measure how much the prior influenced the result, score predictions on
+held-out data, and report each step.
 
-Website with walkthroughs: **<https://elkronos.github.io/bmbeR/>**
-
-Branches: `main` holds the package source; `github-pages` holds the built
-website and is written automatically by the pkgdown workflow (do not edit it
-by hand).
+Website with walkthroughs: <https://elkronos.github.io/bmbeR/>
 
 ## Installation
 
@@ -28,11 +24,10 @@ remotes::install_github("elkronos/bmbeR")
 ```
 
 bmbeR needs rstanarm, which installs from CRAN as a binary on Windows and
-macOS. The walkthroughs are on the [website](https://elkronos.github.io/bmbeR/);
-add `build_vignettes = TRUE` to also install the *Get started* vignette
-locally (slower, because it fits models).
+macOS. To install the *Get started* vignette as well, add
+`build_vignettes = TRUE`; this is slower because the vignette fits models.
 
-## A complete workflow in one screen
+## The workflow on one screen
 
 ```r
 library(bmbeR)
@@ -82,26 +77,28 @@ workflow_report(fit, prior_check = pc, performance = perf)
 
 ## Why bmbeR?
 
-rstanarm fits the models, bayesplot draws the plots, loo and posterior
-compute the diagnostics. bmbeR adds what is missing for rstanarm users:
+rstanarm fits the models, bayesplot draws the plots, and loo and posterior
+compute the diagnostics. bmbeR adds what rstanarm users otherwise build by
+hand:
 
 * **Power-scaling prior sensitivity for rstanarm fits.** The priorsense
-  package supports brms, cmdstanr, rstan, JAGS and NIMBLE models; bmbeR
-  reconstructs rstanarm's log-prior from `prior_summary()` (including
-  autoscaling and the centred intercept), so the diagnostics work on
-  `stan_glm()` and `stan_glmer()` fits, and `as_priorsense_draws()` hands
-  them to priorsense.
+  package supports brms, cmdstanr, rstan, JAGS and NIMBLE models but cannot
+  read rstanarm fits. bmbeR rebuilds rstanarm's log prior from
+  `prior_summary()`, including autoscaling and the centred intercept, so the
+  diagnostics work on `stan_glm()` and `stan_glmer()` fits.
+  `as_priorsense_draws()` passes them to priorsense.
 * **A diagnosis that separates informative from conflicting priors.** The
-  `conflict_z` statistic equals the classic prior predictive z-score in the
-  normal model.
+  `conflict_z` statistic equals the prior predictive z-score of Box (1980)
+  in the normal model.
 * **Data-informed priors that don't count the data twice.** Centring a tight
-  prior on estimates from the same data gives about 83% coverage for
-  nominal 95% intervals; the methods here are calibrated or use external
-  data.
-* **Honest predictive evaluation.** Proper scoring rules on held-out data,
-  with paired model comparison.
+  prior on estimates from the same data drops the coverage of nominal 95%
+  intervals to about 83%. Unit-information priors leave it where the
+  likelihood alone puts it, and power priors take their information from a
+  different data set.
+* **Predictive evaluation on held-out data** with proper scoring rules (ELPD,
+  CRPS, Brier score) and paired model comparison.
 * **One object per stage, one report at the end.** Every result has an
-  `as.data.frame()` method, and `format(report, type = "markdown")` drops the
+  `as.data.frame()` method, and `format(report, type = "markdown")` puts the
   checklist into R Markdown or Quarto.
 
 ## Learn more
@@ -121,9 +118,10 @@ bmbeR supports generalised linear models fitted with `rstanarm::stan_glm()`
 families). For multilevel models fitted with `rstanarm::stan_glmer()`, the
 prior tools (`prior_table()`, `prior_sensitivity()`, `plot_prior_posterior()`,
 `as_priorsense_draws()` and `workflow_report()`) cover the population-level
-priors; the group-level covariance prior is held fixed. brms is out of
-scope. See the
-[design review](https://github.com/elkronos/bmbeR/blob/main/REVIEW.md#remaining-limitations) for known limitations.
+priors and hold the group-level covariance prior fixed. brms is out of
+scope. The
+[design review](https://github.com/elkronos/bmbeR/blob/main/REVIEW.md#remaining-limitations)
+lists known limitations.
 
 ## References
 
@@ -135,13 +133,18 @@ scope. See the
 - Gneiting, T., & Raftery, A. E. (2007). Strictly proper scoring rules, prediction, and estimation. *JASA*, 102(477), 359–378.
 - Ibrahim, J. G., & Chen, M.-H. (2000). Power prior distributions for regression models. *Statistical Science*, 15(1), 46–60.
 - Kallioinen, N., et al. (2023). Detecting and diagnosing prior and likelihood sensitivity with power-scaling. *Statistics and Computing*, 34, 57.
-- Kass, R. E., & Wasserman, L. (1995). A reference Bayesian test for nested hypotheses. *JASA*, 90(431), 928–934.
+- Kass, R. E., & Wasserman, L. (1995). A reference Bayesian test for nested hypotheses and its relationship to the Schwarz criterion. *JASA*, 90(431), 928–934.
 - Kruschke, J. K. (2021). Bayesian analysis reporting guidelines. *Nature Human Behaviour*, 5, 1282–1291.
 - Morris, C. N. (1983). Parametric empirical Bayes inference: Theory and applications. *JASA*, 78(381), 47–55.
 - Vehtari, A., Gelman, A., & Gabry, J. (2017). Practical Bayesian model evaluation using leave-one-out cross-validation and WAIC. *Statistics and Computing*, 27(5), 1413–1432.
-- Vehtari, A., et al. (2021). Rank-normalization, folding, and localization: An improved R-hat. *Bayesian Analysis*, 16(2), 667–718.
+- Vehtari, A., et al. (2021). Rank-normalization, folding, and localization: An improved R-hat for assessing convergence of MCMC. *Bayesian Analysis*, 16(2), 667–718.
 - Vehtari, A., et al. (2024). Pareto smoothed importance sampling. *JMLR*, 25(72), 1–58.
 
 ## License
 
 GPL (>= 3)
+
+## Repository
+
+`main` holds the package source. `github-pages` holds the built website; the
+pkgdown workflow writes it, so do not edit it by hand.

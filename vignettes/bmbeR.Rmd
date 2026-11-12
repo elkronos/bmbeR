@@ -14,15 +14,16 @@ options(mc.cores = 2)
 ```
 
 bmbeR walks a regression model through the stages of a Bayesian workflow
-(Gelman et al., 2020), with the prior treated as a first-class part of the
-model rather than an afterthought:
+(Gelman et al., 2020) and treats the prior as part of the model at every
+stage:
 
-1. **Specify** priors on a meaningful scale.
-2. **Check** what they imply *before* seeing the outcome (prior predictive check).
-3. **Fit** the model and **verify** the computation (modern MCMC diagnostics).
-4. **Quantify** how much the prior influenced the result (power-scaling sensitivity).
-5. **Evaluate** predictions with proper scoring rules.
-6. **Report** everything in a checklist aligned with the Bayesian Analysis
+1. Specify priors on the scale of the data.
+2. Check what they imply *before* seeing the outcome (prior predictive check).
+3. Fit the model and verify the computation (R-hat, effective sample size,
+   divergences, E-BFMI).
+4. Quantify how much the prior influenced the result (power-scaling sensitivity).
+5. Evaluate predictions with proper scoring rules.
+6. Report each step in a checklist aligned with the Bayesian Analysis
    Reporting Guidelines (Kruschke, 2021).
 
 Models are fitted with [rstanarm](https://mc-stan.org/rstanarm/), so every
@@ -88,9 +89,10 @@ pc
 plot(pc)
 ```
 
-The simulated data sets are wider than the observed data, as they should be
-(the priors are weakly informative), but almost all simulated values stay
-within the plausible range.
+The simulated data sets are wider than the observed data, as weakly
+informative priors should make them, but only
+`r sprintf("%.1f%%", 100 * pc$summary$share_outside)` of simulated values fall
+outside the plausible range.
 
 ## 3. Fit the model and verify the computation
 
@@ -101,11 +103,12 @@ fit <- fit_model_with_prior(train, kid_score ~ mom_iq + mom_hs,
 attr(fit, "bmb_convergence")
 ```
 
-`fit_model_with_prior()` runs `check_convergence()` automatically using the
-criteria of Vehtari et al. (2021): rank-normalised R-hat below 1.01, bulk-
-and tail-ESS of at least 100 per chain, no divergent transitions and
-adequate E-BFMI. If a check fails it warns and still returns the fit so you
-can investigate; rank plots are the most sensitive visual check:
+`fit_model_with_prior()` runs `check_convergence()` automatically with the
+criteria of Vehtari et al. (2021): rank-normalised R-hat of at most 1.01,
+bulk- and tail-ESS of at least 100 per chain, no divergent transitions and
+E-BFMI of at least 0.3. If a check fails it warns and still returns the fit
+so you can investigate. Rank plots show mixing problems more clearly than
+trace plots:
 
 ```{r}
 plot(attr(fit, "bmb_convergence"), type = "rank")
@@ -128,8 +131,9 @@ sens
 ```
 
 ```{r, include = FALSE}
-flagged <- sens$summary$variable[sens$summary$diagnosis != "-"]
-conflict <- sens$summary$variable[sens$summary$diagnosis == "prior-data conflict"]
+flag_rows <- sens$summary[sens$summary$diagnosis != "-", ]
+flagged <- paste0("\x60", flag_rows$variable, "\x60 (", flag_rows$diagnosis, ")", collapse = " and ")
+conflict <- any(flag_rows$diagnosis == "prior-data conflict")
 ```
 
 How to read the table:
@@ -138,9 +142,10 @@ How to read the table:
 * The `*_sens` columns measure how much the posterior mean and SD respond to
   strengthening the prior or the likelihood (0 = not at all).
 * `conflict_z` measures disagreement between prior and data in standard-error
-  units; values beyond ±2 indicate a prior-data conflict.
+  units. A parameter whose prior is influential and whose `|conflict_z|` is
+  2 or more is diagnosed as a prior-data conflict.
 
-`r if (length(flagged) == 0) "No parameter is sensitive to the prior: the likelihood dominates, so the conclusions do not hinge on the exact priors chosen." else paste0("The diagnosis flags ", paste0("\x60", flagged, "\x60", collapse = " and "), ": for ", if (length(flagged) == 1) "this parameter" else "these parameters", " the prior contributes a non-negligible share of the posterior precision. ", if (length(conflict) == 0) "Because every |conflict_z| is well below 2, prior and data agree, which is what an informative-but-sensible prior should look like. The remaining parameters are dominated by the likelihood." else "For the parameters labelled as a conflict, prior and data disagree and the prior deserves a second look.")`
+`r if (nrow(flag_rows) == 0) "No parameter is sensitive to the prior: the likelihood dominates, so the conclusions do not hinge on the exact priors chosen." else paste0("The diagnosis flags ", flagged, ": for each, \x60|prior_mean_sens|\x60 or \x60|prior_sd_sens|\x60 is at least 0.05. ", if (!conflict) "Every |conflict_z| is below 2, so prior and data agree." else "For a prior-data conflict, prior and data disagree, so revisit that prior.")`
 The *Prior sensitivity* article shows what weakly informative, conflicting
 and weakly identified cases look like.
 
@@ -151,11 +156,11 @@ perf <- evaluate_model_performance(fit, test)
 perf
 ```
 
-Besides RMSE and MAE of the posterior mean, bmbeR reports proper scoring
-rules that also reward honest uncertainty: the held-out log predictive
-density (ELPD) and the continuous ranked probability score (CRPS). Coverage
-of the 90% predictive intervals close to 90% indicates well-calibrated
-uncertainty.
+Besides RMSE and MAE of the posterior mean, bmbeR reports two proper
+scoring rules, which also reward calibrated uncertainty: the held-out log
+predictive density (ELPD) and the continuous ranked probability score
+(CRPS). Coverage of the 90% predictive intervals close to 90% indicates
+well-calibrated uncertainty.
 
 ## 6. Report
 
@@ -165,9 +170,11 @@ report <- workflow_report(fit, prior_check = pc, sensitivity = sens,
 report
 ```
 
-Items marked `[check]` need attention and `[ -- ]` items have not been done
-yet. The report adds posterior predictive p-values and PSIS-LOO
-cross-validation, which are cheap to compute from the fit.
+Items with status `check` need attention and `missing` items have not been
+done yet; printed in the console, these show as `[check]` and `[ -- ]`. The
+report computes posterior predictive p-values and PSIS-LOO cross-validation
+from the fit itself, and runs `prior_sensitivity()` when no sensitivity
+result is supplied.
 
 ## Where next
 

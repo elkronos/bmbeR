@@ -13,11 +13,11 @@ library(bmbeR)
 library(ggplot2)
 ```
 
-A Bayesian model predicts a *distribution*, not a number. Scoring only the
-posterior mean (RMSE, accuracy) ignores whether the model's uncertainty is
-honest. **Proper scoring rules** reward a forecast for being both accurate and
-calibrated: they are optimised in expectation only by reporting your true
-predictive distribution (Gneiting & Raftery, 2007).
+A Bayesian model predicts a *distribution*. Scoring only the posterior mean
+(RMSE, accuracy) ignores whether the model's uncertainty is right. Proper
+scoring rules reward a forecast for being both accurate and calibrated: in
+expectation, they are optimised only by reporting your true predictive
+distribution (Gneiting & Raftery, 2007).
 `evaluate_model_performance()` reports:
 
 | Metric | Outcome | Better | Notes |
@@ -49,8 +49,9 @@ perf_full
 ```
 
 Classification metrics are computed from the posterior mean *probability*
-of switching, thresholded at 0.5 (see `threshold`). Accuracy alone can hide a
-lot: the Brier score and ELPD also penalise overconfident probabilities.
+of switching, thresholded at 0.5 (see `threshold`). Accuracy ignores how
+confident each prediction was; the Brier score and ELPD also penalise
+overconfident probabilities.
 
 ### Comparing models on the same test set
 
@@ -60,10 +61,14 @@ ELPD should be assessed with the standard error of the *paired*
 separate standard errors:
 
 ```{r}
-compare_performance(distance_only = perf_dist, full = perf_full)
+cmp <- compare_performance(distance_only = perf_dist, full = perf_full)
+cmp
 ```
 
-A difference of several standard errors is a clear improvement.
+The full model's ELPD is higher by `r sprintf("%.1f", -cmp$elpd_diff[2])`
+(SE `r sprintf("%.1f", cmp$se_diff[2])`), about
+`r round(-cmp$elpd_diff[2] / cmp$se_diff[2])` standard errors, so adding
+arsenic and education improves the predictions.
 
 ### Calibration
 

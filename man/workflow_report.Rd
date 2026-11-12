@@ -46,7 +46,7 @@ number stream is left unchanged.}
 An object of class \code{bmb_report} with elements \code{items} (a data
 frame with one row per checklist item: \code{item}, \code{status}, \code{detail}),
 \code{posterior} (posterior summary table), \code{priors}, \code{convergence}, \code{loo},
-\code{ppc} and \code{sensitivity}.
+\code{ppc}, \code{sensitivity} and \code{prob}.
 }
 \description{
 Assembles the information that the Bayesian Analysis Reporting
@@ -62,16 +62,17 @@ Supply the results of steps that require extra work, such as
 complete the checklist.
 
 Posterior predictive p-values use the mean, SD, minimum and maximum of the
-outcome. For binary outcomes the mean is reproduced by any model with an
-intercept, so a binned calibration statistic is used as well: observations
-are grouped by their fitted probability and the squared standardised
-differences between observed and expected successes are summed (a posterior
+outcome. For binary outcomes they use the mean and, with at least 20
+observations, a binned calibration statistic, because any model with an
+intercept reproduces the mean. The calibration statistic groups
+observations by fitted probability and sums the squared standardised
+differences between observed and expected successes, a posterior
 predictive version of the Hosmer-Lemeshow statistic; only large values
-indicate misfit).
+indicate misfit.
 
 Held-out performance is marked \code{check} when the coverage of the predictive
-intervals differs from \code{prob} of \code{\link[=evaluate_model_performance]{evaluate_model_performance()}} by more
-than two binomial standard errors.
+intervals differs from their nominal level (\code{prob} in
+\code{\link[=evaluate_model_performance]{evaluate_model_performance()}}) by more than two binomial standard errors.
 
 Use \code{format(report, type = "markdown")} (or knit the object in R Markdown
 or Quarto) for a Markdown version of the checklist.

@@ -191,8 +191,8 @@ t(sapply(fits_pp, function(fit) {
 
 Borrowing more (larger \(a_0\)) narrows the posterior. Choosing \(a_0\) is a
 substantive judgement about how similar the studies are; run
-`prior_sensitivity()` on the result, since a historical study that differs
-from the current one shows up as a prior-data conflict:
+`prior_sensitivity()` on the result, because a historical study that differs
+from the current one can show up as a prior-data conflict:
 
 ```{r}
 prior_sensitivity(fits_pp[["a0 = 1"]])$summary[, c("variable", "contraction", "conflict_z", "diagnosis")]

@@ -18,11 +18,10 @@ plot_prior_posterior(fit, pars = NULL, n_grid = 300L)
 A ggplot object.
 }
 \description{
-Overlays the prior density that rstanarm actually used (after any
-autoscaling) on the posterior density of each parameter. A posterior that
-looks like its prior indicates the data carry little information about
-that parameter; a posterior squeezed against a region the prior considers
-implausible suggests prior-data conflict. Unlike
+Overlays the prior density that rstanarm used (after any autoscaling) on
+the posterior density of each parameter. A posterior that looks like its
+prior indicates the data carry little information about that parameter; a
+posterior in the tail of its prior suggests prior-data conflict. Unlike
 \code{\link[rstanarm:posterior_vs_prior]{rstanarm::posterior_vs_prior()}}, no refitting is needed.
 }
 \details{

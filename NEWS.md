@@ -38,8 +38,8 @@ Fixes from a second review of 2.0.0, each with a regression test.
 * `workflow_report()`: held-out performance is marked `check` when interval
   coverage is off by more than two standard errors; rstanarm's defaults are
   recognised for intercept-only models; binary outcomes get a binned
-  calibration check and a meaningful prior predictive summary; QR fits get an
-  accurate message about prior sensitivity.
+  calibration check and a prior predictive summary based on success
+  proportions; QR fits get an accurate message about prior sensitivity.
 * `check_convergence()` no longer fails parameters with constant draws,
   validates its thresholds, and reports the R-hat of the failing parameters.
 * `empirical_bayes_priors()` reports separation and other warnings from the
@@ -55,8 +55,9 @@ Fixes from a second review of 2.0.0, each with a regression test.
 
 * `prior_table()` returns the priors a fit used, after autoscaling.
 * `sensitivity_analysis(cv = "kfold")` compares configurations by K-fold
-  cross-validation, and `parallel = TRUE` fits them in parallel with
-  future.apply.
+  cross-validation, `cv = "none"` compares posteriors only (needed for
+  weighted models, which rstanarm cannot cross-validate), and
+  `parallel = TRUE` fits the configurations in parallel with future.apply.
 * `prior_table()`, `prior_sensitivity()`, `plot_prior_posterior()` and
   `workflow_report()` accept `stan_glmer()` fits. The population-level priors
   are analysed; the group-level covariance prior is held fixed.
@@ -71,7 +72,8 @@ Fixes from a second review of 2.0.0, each with a regression test.
 
 ## Internal
 
-* withr moved from Suggests to Imports; future.apply added to Suggests.
+* withr moved from Suggests to Imports; future, future.apply and priorsense
+  added to Suggests.
 * GitHub Actions are pinned to commit SHAs and kept current by Dependabot; a
   test-coverage workflow was added.
 
