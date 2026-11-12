@@ -8,5 +8,5 @@
 ^pkgdown$
 ^\.github$
 ^vignettes/articles$
-^\.claude$
+^cran-comments\.md$
 ^review$
