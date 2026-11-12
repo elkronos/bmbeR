@@ -76,6 +76,7 @@ test_that("priorsense agrees with prior_sensitivity on a conflicting prior", {
 
 test_that("sensitivity_analysis can fit configurations in parallel", {
   skip_if_no_stan()
+  skip_if_not_installed("future")
   skip_if_not_installed("future.apply")
   data(kidiq, package = "rstanarm", envir = environment())
   old <- future::plan("sequential")

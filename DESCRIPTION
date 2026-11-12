@@ -36,6 +36,7 @@ Imports:
     utils,
     withr (>= 2.0.0)
 Suggests: 
+    future,
     future.apply,
     knitr,
     priorsense,
